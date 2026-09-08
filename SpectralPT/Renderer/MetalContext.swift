@@ -84,13 +84,21 @@ final class MetalContext {
     func table(
         scene: MTLBuffer, work: MTLBuffer, frame: MTLBuffer, offset: Int = 0, output: MTLTexture? = nil
     ) throws -> MTL4ArgumentTable {
+        try table(
+            sceneAddress: scene.gpuAddress, workAddress: work.gpuAddress,
+            frameAddress: frame.gpuAddress + UInt64(offset), output: output)
+    }
+    func table(
+        sceneAddress: UInt64, workAddress: UInt64, frameAddress: UInt64,
+        output: MTLTexture? = nil
+    ) throws -> MTL4ArgumentTable {
         let desc = MTL4ArgumentTableDescriptor()
         desc.maxBufferBindCount = 3
         desc.maxTextureBindCount = 1
         let table = try device.makeArgumentTable(descriptor: desc)
-        table.setAddress(scene.gpuAddress, index: 0)
-        table.setAddress(work.gpuAddress, index: 1)
-        table.setAddress(frame.gpuAddress + UInt64(offset), index: 2)
+        table.setAddress(sceneAddress, index: 0)
+        table.setAddress(workAddress, index: 1)
+        table.setAddress(frameAddress, index: 2)
         if let output {
             table.setTexture(output.gpuResourceID, index: 0)
         }

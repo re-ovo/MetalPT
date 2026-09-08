@@ -6,6 +6,7 @@ import Metal
 nonisolated final class RenderGraph {
     struct Resource: Hashable {
         let id: Int
+        fileprivate let owner: UUID
     }
     enum Kind {
         case buffer, texture, accelerationStructure
@@ -33,6 +34,8 @@ nonisolated final class RenderGraph {
         let to: MTLStages
     }
     struct Compiled {
+        fileprivate let owner: UUID
+        fileprivate let revision: Int
         let order: [Int]
         let barriers: [Int: Barrier]
         let lifetimes: [Resource: ClosedRange<Int>]
@@ -45,6 +48,8 @@ nonisolated final class RenderGraph {
             }
         }
     }
+    private let identity = UUID()
+    private var revision = 0
     private var resources: [(String, Kind, Bool)] = []
     private(set) var passes: [Pass] = []
     private var allocations: [Resource: MTLAllocation] = [:]
@@ -53,6 +58,8 @@ nonisolated final class RenderGraph {
 
     /// Captures no graph, so pass closures can safely resolve only their declared resources.
     struct ResolvedResources {
+        fileprivate let owner: UUID
+        fileprivate let revision: Int
         fileprivate let allocations: [Resource: MTLAllocation]
         func buffer(_ handle: Resource) throws -> MTLBuffer {
             guard let value = allocations[handle] as? MTLBuffer else {
@@ -63,6 +70,12 @@ nonisolated final class RenderGraph {
         func texture(_ handle: Resource) throws -> MTLTexture {
             guard let value = allocations[handle] as? MTLTexture else {
                 throw GraphError.invalid("Texture was culled, not declared, or has the wrong type")
+            }
+            return value
+        }
+        func accelerationStructure(_ handle: Resource) throws -> MTLAccelerationStructure {
+            guard let value = allocations[handle] as? MTLAccelerationStructure else {
+                throw GraphError.invalid("AS was culled, not declared, or has the wrong type")
             }
             return value
         }
@@ -93,25 +106,40 @@ nonisolated final class RenderGraph {
 
     /// Allocate only after dependency compilation and dead-pass elimination.
     func materialize(_ compiled: Compiled) throws -> ResolvedResources {
+        try validate(compiled)
         var result: [Resource: MTLAllocation] = [:]
+        var owners: [ObjectIdentifier: Resource] = [:]
         for handle in compiled.lifetimes.keys.sorted(by: { $0.id < $1.id }) {
             if let imported = allocations[handle] {
                 result[handle] = imported
             } else if let allocate = factories[handle] {
                 result[handle] = try allocate()
             }
+            guard let allocation = result[handle] else {
+                throw GraphError.invalid("Live resource has no allocation")
+            }
+            let identity = ObjectIdentifier(allocation)
+            guard owners[identity] == nil else {
+                throw GraphError.invalid("Distinct live resources alias the same allocation")
+            }
+            owners[identity] = handle
         }
-        return ResolvedResources(allocations: result)
+        return ResolvedResources(owner: identity, revision: revision, allocations: result)
     }
 
     final class Cache {
-        private var plans: [[String]: Compiled] = [:]
+        fileprivate struct Plan {
+            let order: [Int]
+            let barriers: [Int: Barrier]
+            let lifetimes: [Int: ClosedRange<Int>]
+        }
+        private var plans: [[String]: Plan] = [:]
         private var lru: [[String]] = []
         private(set) var hits = 0
         private(set) var misses = 0
         let capacity: Int
         init(capacity: Int = 16) { self.capacity = max(1, capacity) }
-        fileprivate func lookup(_ key: [String]) -> Compiled? {
+        fileprivate func lookup(_ key: [String]) -> Plan? {
             guard let plan = plans[key] else { misses += 1; return nil }
             hits += 1
             lru.removeAll { $0 == key }; lru.append(key)
@@ -119,7 +147,9 @@ nonisolated final class RenderGraph {
         }
         fileprivate func store(_ plan: Compiled, key: [String]) {
             if plans[key] == nil, lru.count >= capacity { plans.removeValue(forKey: lru.removeFirst()) }
-            plans[key] = plan
+            plans[key] = Plan(
+                order: plan.order, barriers: plan.barriers,
+                lifetimes: Dictionary(uniqueKeysWithValues: plan.lifetimes.map { ($0.key.id, $0.value) }))
             lru.removeAll { $0 == key }; lru.append(key)
         }
     }
@@ -136,7 +166,8 @@ nonisolated final class RenderGraph {
     }
     func resource(_ name: String, kind: Kind = .buffer, imported: Bool = false) -> Resource {
         resources.append((name, kind, imported))
-        return Resource(id: resources.count - 1)
+        revision += 1
+        return Resource(id: resources.count - 1, owner: identity)
     }
     @discardableResult
     func pass(
@@ -153,12 +184,14 @@ nonisolated final class RenderGraph {
         _ name: String, accesses: [Access], sideEffect: Bool = false, after: [Int] = [],
         encode: @escaping (MTL4CommandBuffer, ResolvedResources) throws -> Void
     ) -> Int {
+        revision += 1
         passes.append(
             Pass(name: name, accesses: accesses, sideEffect: sideEffect, after: after, encode: encode))
         return passes.count - 1
     }
 
     func compile(cache: Cache) throws -> Compiled {
+        try validateHandles()
         // Includes topology and initialization, excludes dimensions and frame-local allocations.
         var key =
             [String(resources.count)] + resources.flatMap { [$0.0, String(describing: $0.1), String($0.2)] }
@@ -172,13 +205,37 @@ nonisolated final class RenderGraph {
                 key += [String(a.resource.id), String(a.write), String(a.stage.rawValue)]
             }
         }
-        if let cached = cache.lookup(key) { return cached }
+        if let cached = cache.lookup(key) {
+            return Compiled(
+                owner: identity, revision: revision, order: cached.order, barriers: cached.barriers,
+                lifetimes: Dictionary(
+                    uniqueKeysWithValues: cached.lifetimes.map {
+                        (Resource(id: $0.key, owner: identity), $0.value)
+                    }))
+        }
         let result = try compile()
         cache.store(result, key: key)
         return result
     }
 
+    private func validateHandles() throws {
+        for pass in passes {
+            for access in pass.accesses {
+                guard access.resource.owner == identity, resources.indices.contains(access.resource.id) else {
+                    throw GraphError.invalid("Foreign or invalid resource in \(pass.name)")
+                }
+            }
+        }
+    }
+
+    private func validate(_ compiled: Compiled) throws {
+        guard compiled.owner == identity, compiled.revision == revision else {
+            throw GraphError.invalid("Compiled graph belongs to another graph or is stale")
+        }
+    }
+
     func compile() throws -> Compiled {
+        try validateHandles()
         var dependencies = Array(repeating: Set<Int>(), count: passes.count)
         var producers = dependencies
         var writer: [Resource: Int] = [:], readers: [Resource: Set<Int>] = [:]
@@ -267,12 +324,17 @@ nonisolated final class RenderGraph {
                 barriers[i] = Barrier(from: from, to: to)
             }
         }
-        return Compiled(order: order, barriers: barriers, lifetimes: lifetimes)
+        return Compiled(
+            owner: identity, revision: revision, order: order, barriers: barriers, lifetimes: lifetimes)
     }
     func execute(
         _ compiled: Compiled, resources: ResolvedResources, on command: MTL4CommandBuffer,
         profiler: GraphProfiler? = nil
     ) throws {
+        try validate(compiled)
+        guard resources.owner == identity, resources.revision == revision else {
+            throw GraphError.invalid("Resolved resources belong to another graph or are stale")
+        }
         for (position, i) in compiled.order.enumerated() {
             if let b = compiled.barriers[i] {
                 guard let encoder = command.makeComputeCommandEncoder() else {
@@ -286,13 +348,15 @@ nonisolated final class RenderGraph {
             // Runtime resolver cannot access undeclared resources, even if another pass made them live.
             let allowed = Set(passes[i].accesses.map(\.resource))
             let scoped = ResolvedResources(
+                owner: identity, revision: revision,
                 allocations: resources.allocations.filter { allowed.contains($0.key) })
             try passes[i].encode(command, scoped)
             profiler?.end(position, command: command)
         }
     }
-    func dump(_ compiled: Compiled) -> String {
-        compiled.order.map {
+    func dump(_ compiled: Compiled) throws -> String {
+        try validate(compiled)
+        return compiled.order.map {
             i in "\(i): \(passes[i].name)\(compiled.barriers[i] == nil ? "" : " [barrier]")"
         }.joined(separator: "\n") + "\n"
             + compiled.lifetimes.sorted {

@@ -2,16 +2,14 @@ import Metal
 
 enum ShadowTracePass {
     struct Resources {
-        let shadows, acceleration, sceneRoot, counts, indirect, sample: RenderGraph.Resource
-        let traversal: [RenderGraph.Resource]
+        let shadows, counts, indirect, sample: RenderGraph.Resource
+        let scene: SceneBindings
     }
     static func add(to graph: RenderGraph, compute: ComputePass, resources io: Resources, bounce: Int) {
         compute.add(
             to: graph, kernel: "traceShadows",
-            accesses: [
-                .read(io.shadows), .read(io.acceleration), .read(io.sceneRoot), .read(io.counts),
-                .read(io.sample), .write(io.sample),
-            ] + io.traversal.map { .read($0) },
-            bounce: bounce, indirect: io.indirect, indirectOffset: 12)
+            work: WorkBindings([
+                .shadows: .read(io.shadows), .counts: .read(io.counts), .radiance: .readWrite(io.sample),
+            ]), scene: io.scene, bounce: bounce, indirect: io.indirect, indirectOffset: 12)
     }
 }

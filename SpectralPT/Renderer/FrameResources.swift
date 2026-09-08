@@ -55,21 +55,24 @@ final class FrameResources {
         sceneSnapshot = scene.resources
         let graph = self.graph
         let pool = slot.pool
+        let displayKey = slot.resourceKeys.display
         let n = parameters.pixelCount
-        func buffer(_ name: String, _ length: Int, shared: Bool = false) throws -> RenderGraph.Resource {
+        func buffer(_ key: TransientPool.Key, _ name: String, _ length: Int, shared: Bool = false) throws
+            -> RenderGraph.Resource
+        {
             try graph.createBuffer(name, description: BufferDescription(length: length, shared: shared)) {
                 description in
-                try pool.buffer(name, length: description.length, shared: description.shared)
+                try pool.buffer(key, label: name, length: description.length, shared: description.shared)
             }
         }
         handles = Handles(
-            pathA: try buffer("Path queue A", n * MemoryLayout<PTPath>.stride),
-            pathB: try buffer("Path queue B", n * MemoryLayout<PTPath>.stride),
-            hits: try buffer("Intersections", n * MemoryLayout<PTHit>.stride),
-            shadows: try buffer("Shadow queue", n * MemoryLayout<PTShadow>.stride),
-            sample: try buffer("Sample XYZ", n * 16, shared: true),
-            counts: try buffer("Queue counters", 32, shared: true),
-            indirect: try buffer("Indirect dispatch", 32))
+            pathA: try buffer(slot.resourceKeys.pathA, "Path queue A", n * MemoryLayout<PTPath>.stride),
+            pathB: try buffer(slot.resourceKeys.pathB, "Path queue B", n * MemoryLayout<PTPath>.stride),
+            hits: try buffer(slot.resourceKeys.hits, "Intersections", n * MemoryLayout<PTHit>.stride),
+            shadows: try buffer(slot.resourceKeys.shadows, "Shadow queue", n * MemoryLayout<PTShadow>.stride),
+            sample: try buffer(slot.resourceKeys.sample, "Sample XYZ", n * 16, shared: true),
+            counts: try buffer(slot.resourceKeys.counts, "Queue counters", 32, shared: true),
+            indirect: try buffer(slot.resourceKeys.indirect, "Indirect dispatch", 32))
         self.accumulation = graph.importResource(
             "Persistent XYZ", allocation: accumulation, initialized: !parameters.reset)
         self.output = graph.importResource("Drawable", allocation: output, kind: .texture, initialized: false)
@@ -78,7 +81,7 @@ final class FrameResources {
             description: TextureDescription(
                 width: output.width, height: output.height, pixelFormat: output.pixelFormat)
         ) { description in
-            try pool.texture("Display color", description: description)
+            try pool.texture(displayKey, label: "Display color", description: description)
         }
         var imported: [ResourceRegistry.Handle: RenderGraph.Resource] = [:]
         for entry in sceneSnapshot {
@@ -88,8 +91,8 @@ final class FrameResources {
         }
         sceneHandles = imported
         bindings = try ComputeBindings(
-            context: context, pool: pool, parameters: parameters,
-            sceneRoot: scene.root, depth: shouldTrace ? parameters.maxDepth : 1)
+            context: context, pool: pool, keys: slot.resourceKeys, parameters: parameters,
+            depth: shouldTrace ? parameters.maxDepth : 1)
         bindingResources = bindings.allocations.enumerated().map {
             graph.importResource("Frame binding \($0.offset)", allocation: $0.element)
         }
@@ -97,9 +100,6 @@ final class FrameResources {
 
     func materialize(_ compiled: RenderGraph.Compiled) throws {
         let resources = try graph.materialize(compiled)
-        try bindings.prepare(
-            resources: resources, handles: handles, accumulation: accumulation,
-            outputTexture: resources.texture(displayColor))
         // All directly and indirectly accessed allocations come from the same graph declarations.
         residency = try context.residency(resources.liveAllocations)
         resolved = resources

@@ -101,6 +101,32 @@ import Metal
         _ = try graph.compile(cache: cache)
         require(cache.misses == 2, "topology invalidates cache")
         do { _ = try invalid.compile(cache: cache); fatalError("cache bypassed invalid read") } catch {}
+        let ownerA = RenderGraph(), ownerB = RenderGraph()
+        let foreign = ownerA.resource("shared", imported: true)
+        let local = ownerB.resource("shared", imported: true)
+        require(foreign != local, "resource identities must include their graph")
+        ownerA.pass("consume", accesses: [.read(foreign)], sideEffect: true) { _ in }
+        let identityCache = RenderGraph.Cache()
+        let planA = try ownerA.compile(cache: identityCache)
+        ownerB.pass("consume", accesses: [.read(local)], sideEffect: true) { _ in }
+        let planB = try ownerB.compile(cache: identityCache)
+        require(
+            identityCache.hits == 1 && planB.lifetimes[local] != nil && planB.lifetimes[foreign] == nil,
+            "cached plans must rebind resource identities")
+        do { _ = try ownerB.materialize(planA); fatalError("foreign plan accepted") } catch {}
+        ownerB.pass("wrong owner", accesses: [.read(foreign)], sideEffect: true) { _ in }
+        do { _ = try ownerB.compile(); fatalError("foreign resource accepted") } catch {}
+        do {
+            _ = try ownerB.compile(cache: identityCache); fatalError("cache accepted foreign resource")
+        } catch {}
+        do { _ = try ownerB.materialize(planB); fatalError("stale plan accepted") } catch {}
+        let badOwner = RenderGraph()
+        _ = badOwner.resource("shared", imported: true)
+        badOwner.pass("consume", accesses: [.read(foreign)], sideEffect: true) { _ in }
+        do {
+            _ = try badOwner.compile(cache: identityCache); fatalError("cache hit bypassed handle ownership")
+        } catch {}
+        do { _ = try ownerB.dump(planB); fatalError("stale graph dump accepted") } catch {}
         print(
             "RenderGraph and ABI tests passed (culling, RAW/WAR/WAW, lifecycle, invalid read, cycle, AS stages)."
         )

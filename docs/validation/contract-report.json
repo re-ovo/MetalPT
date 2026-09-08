@@ -1,0 +1,141 @@
+{
+  "blackScenePassed" : true,
+  "cornell" : {
+    "litFraction" : 0.9819010416666667,
+    "meanRGB" : 0.3790341435185185
+  },
+  "cornellGPUms" : 15.694250119850039,
+  "cornellGPUmsStatistic" : "median, excluding first 4 frames",
+  "device" : "Apple M4",
+  "dispersionMeanAbsoluteDifference" : 0.018333626940359476,
+  "engineChecks" : {
+    "emitterContracts" : true,
+    "graphCacheHits" : 120,
+    "instancedVsBakedDifference" : 0,
+    "lightCount" : 2,
+    "passBindingContracts" : true,
+    "passed" : true,
+    "sharedMeshInstances" : 2,
+    "textureSlots" : 3
+  },
+  "frameResources" : {
+    "cachedBytes" : 53758464,
+    "graphCacheHits" : 102,
+    "graphCacheMisses" : 7,
+    "instanceCount" : 5,
+    "liveResources" : 38,
+    "meshCount" : 5
+  },
+  "output" : "640x480",
+  "passed" : true,
+  "passGPUms" : {
+    "accumulate [0]" : 0.040458333333333325,
+    "Display · XYZ → sRGB" : 0.24675,
+    "finishBounce [0]" : 0.27645833333333331,
+    "finishBounce [1]" : 0.027333333333333331,
+    "finishBounce [2]" : 0.1195,
+    "finishBounce [3]" : 0.025749999999999999,
+    "finishBounce [4]" : 0.044999999999999998,
+    "finishBounce [5]" : 0.0066249999999999998,
+    "finishBounce [6]" : 0.016916666666666663,
+    "finishBounce [7]" : 0.019083333333333331,
+    "initialize [0]" : 0.51558333333333328,
+    "intersectPaths [0]" : 0.15725,
+    "intersectPaths [1]" : 1.6174166666666665,
+    "intersectPaths [2]" : 0.45050000000000001,
+    "intersectPaths [3]" : 0.39329166666666665,
+    "intersectPaths [4]" : 0.10104166666666665,
+    "intersectPaths [5]" : 0.048500000000000001,
+    "intersectPaths [6]" : 0.014874999999999999,
+    "intersectPaths [7]" : 0.030083333333333333,
+    "prepareBounce [0]" : 0.15675,
+    "prepareBounce [1]" : 0.13262499999999999,
+    "prepareBounce [2]" : 0.13095833333333332,
+    "prepareBounce [3]" : 0.012833333333333332,
+    "prepareBounce [4]" : 0.028791666666666663,
+    "prepareBounce [5]" : 0.021749999999999999,
+    "prepareBounce [6]" : 0.0071666666666666658,
+    "prepareBounce [7]" : 0.0073749999999999996,
+    "prepareShadow [0]" : 0.3607083333333333,
+    "prepareShadow [1]" : 0.092499999999999999,
+    "prepareShadow [2]" : 0.20233333333333331,
+    "prepareShadow [3]" : 0.020958333333333332,
+    "prepareShadow [4]" : 0.060874999999999999,
+    "prepareShadow [5]" : 0.022583333333333334,
+    "prepareShadow [6]" : 0.0083750000000000005,
+    "prepareShadow [7]" : 0.029041666666666664,
+    "Present" : 0.087374999999999994,
+    "shadePaths [0]" : 1.0714166666666665,
+    "shadePaths [1]" : 1.2637083333333332,
+    "shadePaths [2]" : 1.0030833333333333,
+    "shadePaths [3]" : 0.47304166666666664,
+    "shadePaths [4]" : 0.10041666666666665,
+    "shadePaths [5]" : 0.075583333333333322,
+    "shadePaths [6]" : 0.051124999999999997,
+    "shadePaths [7]" : 0.056750000000000002,
+    "traceShadows [0]" : 0.58270833333333327,
+    "traceShadows [1]" : 0.22679166666666667,
+    "traceShadows [2]" : 0.42062500000000003,
+    "traceShadows [3]" : 0.34095833333333331,
+    "traceShadows [4]" : 0.072249999999999995,
+    "traceShadows [5]" : 0.0069166666666666664,
+    "traceShadows [6]" : 0.03833333333333333,
+    "traceShadows [7]" : 0.033291666666666664
+  },
+  "prism" : {
+    "litFraction" : 0.98815104166666667,
+    "meanRGB" : 0.51734381808278862
+  },
+  "prismGPUms" : 13.942499877884984,
+  "prismGPUmsStatistic" : "median, excluding first 4 frames",
+  "prismNoDispersion" : {
+    "litFraction" : 0.98824218750000004,
+    "meanRGB" : 0.5269993021514161
+  },
+  "render" : "320x240",
+  "spectralChecks" : [
+    [
+      1.0000792741775513,
+      0.99999994039535522,
+      1.0003279447555542,
+      1
+    ],
+    [
+      1.5308486223220825,
+      1.5130640268325806,
+      1,
+      0.040000002831220627
+    ],
+    [
+      1.0000792741775513,
+      1.0000016689300537,
+      1.0003283023834229,
+      0
+    ],
+    [
+      1.0000749826431274,
+      0.99999678134918213,
+      1.0003247261047363,
+      0
+    ],
+    [
+      0.73000001907348633,
+      0.73000001907348633,
+      0.73000001907348633,
+      0.73000001907348633
+    ],
+    [
+      0.40713804960250854,
+      0.47478362917900085,
+      0.90962344408035278,
+      0.97053295373916626
+    ],
+    [
+      1.0000003576278687,
+      0,
+      0,
+      0
+    ]
+  ],
+  "spp" : 32
+}

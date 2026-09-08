@@ -1,28 +1,27 @@
 import Metal
 
-/// Binding storage has no graph reference and is retained by the frame until GPU completion.
+/// Frame-owned CPU upload arena. Every pass gets a distinct work root and argument table.
 final class ComputeBindings {
     let allocations: [MTLAllocation]
-    private(set) var tables: [MTL4ArgumentTable] = []
     private let context: MetalContext
-    private let sceneRoot: MTLBuffer
     private let frames: MTLBuffer
-    private let roots: [MTLBuffer]
+    private let arena: MTLBuffer
     private let depth: Int
+    private let capacity: Int
+    private var nextSlot = 0
+    private var tables: [MTL4ArgumentTable] = []
 
     init(
-        context: MetalContext, pool: TransientPool, parameters: FrameParameters,
-        sceneRoot: MTLBuffer, depth: Int
+        context: MetalContext, pool: TransientPool, keys: FrameSlot.ResourceKeys,
+        parameters: FrameParameters, depth: Int
     ) throws {
         self.context = context
-        self.sceneRoot = sceneRoot
         self.depth = depth
-        frames = try pool.buffer("Frame constants", length: depth * 256, shared: true)
-        roots = try [
-            pool.buffer("Work root A", length: MemoryLayout<PTWork>.stride, shared: true),
-            pool.buffer("Work root B", length: MemoryLayout<PTWork>.stride, shared: true),
-        ]
-        allocations = [frames] + roots
+        capacity = depth * 6 + 3
+        frames = try pool.buffer(keys.constants, label: "Frame constants", length: depth * 256, shared: true)
+        arena = try pool.buffer(
+            keys.bindings, label: "Pass binding arena", length: capacity * 256, shared: true)
+        allocations = [frames, arena]
         for bounce in 0..<depth {
             var constants = parameters.constants
             constants.size.w = UInt32(bounce)
@@ -33,33 +32,43 @@ final class ComputeBindings {
         }
     }
 
-    func prepare(
-        resources: RenderGraph.ResolvedResources, handles: FrameResources.Handles,
-        accumulation: RenderGraph.Resource, outputTexture: MTLTexture
-    ) throws {
-        func address(_ handle: RenderGraph.Resource) -> UInt64 {
-            (try? resources.buffer(handle).gpuAddress) ?? 0
+    func reserve() -> Int { defer { nextSlot += 1 }; return nextSlot }
+
+    func table(
+        slot: Int, bounce: Int, work: WorkBindings, scene: SceneBindings?,
+        output: RenderGraph.Resource?, resources: RenderGraph.ResolvedResources
+    ) throws -> MTL4ArgumentTable {
+        guard (0..<capacity).contains(slot), (0..<depth).contains(bounce) else {
+            throw RenderFailure("Pass 绑定存储容量或反弹索引越界")
         }
-        var work = PTWork()
-        work.inputPaths = address(handles.pathA)
-        work.outputPaths = address(handles.pathB)
-        work.hits = address(handles.hits)
-        work.shadows = address(handles.shadows)
-        work.radiance = address(handles.sample)
-        work.counts = address(handles.counts)
-        work.indirect = address(handles.indirect)
-        work.accumulation = try resources.buffer(accumulation).gpuAddress
-        for index in 0..<2 {
-            withUnsafeBytes(of: &work) {
-                roots[index].contents().copyMemory(from: $0.baseAddress!, byteCount: $0.count)
+        var root = try work.resolve(resources)
+        let offset = slot * 256
+        withUnsafeBytes(of: &root) {
+            arena.contents().advanced(by: offset).copyMemory(from: $0.baseAddress!, byteCount: $0.count)
+        }
+        var sceneAddress: UInt64 = 0
+        if let scene {
+            let source = try resources.buffer(scene.root)
+            if let acceleration = scene.acceleration {
+                guard source.storageMode == .shared, source.length >= MemoryLayout<PTScene>.stride else {
+                    throw RenderFailure("场景根必须为可读取的共享 PTScene 缓冲")
+                }
+                var sceneRoot = source.contents().load(as: PTScene.self)
+                sceneRoot.acceleration = try resources.accelerationStructure(acceleration).gpuResourceID._impl
+                withUnsafeBytes(of: &sceneRoot) {
+                    arena.contents().advanced(by: offset + 64).copyMemory(
+                        from: $0.baseAddress!, byteCount: $0.count)
+                }
+                sceneAddress = arena.gpuAddress + UInt64(offset + 64)
+            } else {
+                sceneAddress = source.gpuAddress
             }
-            swap(&work.inputPaths, &work.outputPaths)
         }
-        tables = try (0..<depth).map { bounce in
-            try context.table(
-                scene: sceneRoot, work: roots[bounce % 2], frame: frames, offset: bounce * 256,
-                output: outputTexture
-            )
-        }
+        let texture = try output.map { try resources.texture($0) }
+        let table = try context.table(
+            sceneAddress: sceneAddress, workAddress: arena.gpuAddress + UInt64(offset),
+            frameAddress: frames.gpuAddress + UInt64(bounce * 256), output: texture)
+        tables.append(table)
+        return table
     }
 }

@@ -99,6 +99,7 @@ struct SceneDescription {
         for light in lights {
             guard instances.indices.contains(light.instance), materials.indices.contains(light.material),
                 materials[light.material].kind == .emitter,
+                simd_length(simd_cross(light.u, light.v)).isFinite,
                 simd_length(simd_cross(light.u, light.v)) > 1e-8,
                 emitters.insert(light.instance).inserted
             else {
@@ -110,29 +111,42 @@ struct SceneDescription {
                 light.origin, light.origin + light.u, light.origin + light.u + light.v,
                 light.origin + light.v,
             ]
-            let normal = simd_cross(light.u, light.v)
-            let area = simd_length(normal)
-            let triangleAreas = mesh.triangles.map { triangle -> Float in
-                let a = mesh.vertices[Int(triangle.indices.x)].position.xyz
-                let b = mesh.vertices[Int(triangle.indices.y)].position.xyz
-                let c = mesh.vertices[Int(triangle.indices.z)].position.xyz
-                let cross = simd_cross(b - a, c - a)
-                return simd_dot(cross, normal) > 0 ? simd_length(cross) * 0.5 : -1
+            // Canonical rectangle UVs ensure NEE and surface-hit emission evaluate the same texture.
+            let expectedUV: [SIMD2<Float>] = [[0, 0], [1, 0], [1, 1], [0, 1]]
+            var cornerTriangles: [Set<Int>] = []
+            for triangle in mesh.triangles {
+                let material = instance.materialOverride ?? Int(triangle.indices.w)
+                guard material == light.material else { throw RenderFailure("面积灯材质不匹配") }
+                let indices = [triangle.indices.x, triangle.indices.y, triangle.indices.z]
+                var ids: [Int] = []
+                for index in indices {
+                    let vertex = mesh.vertices[Int(index)]
+                    guard
+                        let corner = corners.firstIndex(where: {
+                            simd_distance($0, vertex.position.xyz) < 1e-5
+                        }),
+                        simd_distance(SIMD2(vertex.uv.x, vertex.uv.y), expectedUV[corner]) < 1e-5
+                    else {
+                        throw RenderFailure("采样灯必须使用完整矩形及规范的 0–1 UV")
+                    }
+                    ids.append(corner)
+                }
+                let a = corners[ids[0]], b = corners[ids[1]], c = corners[ids[2]]
+                guard Set(ids).count == 3,
+                    simd_dot(simd_cross(b - a, c - a), simd_cross(light.u, light.v)) > 0
+                else {
+                    throw RenderFailure("面积灯三角形重复顶点或绕序错误")
+                }
+                cornerTriangles.append(Set(ids))
             }
-            guard area.isFinite, triangleAreas.allSatisfy({ $0 > 0 }),
-                abs(triangleAreas.reduce(0, +) - area) < max(1e-5, area * 1e-5),
-                mesh.triangles.count == 2,
-                mesh.triangles.allSatisfy({ triangle in
-                    let material = instance.materialOverride ?? Int(triangle.indices.w)
-                    return material == light.material
-                        && [triangle.indices.x, triangle.indices.y, triangle.indices.z].allSatisfy { index in
-                            corners.contains {
-                                simd_distance($0, mesh.vertices[Int(index)].position.xyz) < 1e-5
-                            }
-                        }
-                })
+            // Either diagonal is valid, but triangles must be distinct and share a diagonal, not an edge.
+            let diagonal =
+                cornerTriangles.count == 2 ? cornerTriangles[0].intersection(cornerTriangles[1]) : []
+            guard cornerTriangles.count == 2, cornerTriangles[0] != cornerTriangles[1],
+                cornerTriangles[0].union(cornerTriangles[1]) == Set(0..<4),
+                diagonal == Set([0, 2]) || diagonal == Set([1, 3])
             else {
-                throw RenderFailure("采样灯的几何与材质必须匹配关联的矩形实例")
+                throw RenderFailure("采样灯三角形必须恰好覆盖完整矩形")
             }
         }
     }

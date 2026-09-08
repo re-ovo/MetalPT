@@ -13,8 +13,11 @@ enum PathTracingPasses {
         let top = sceneHandles[scene.tlasHandle]!
         // A TLAS indirectly references each mesh BLAS during traversal, even after the build frame.
         let traversal = scene.meshBuilds.map { sceneHandles[$0.output]! }
-        let geometry = scene.intersectionResources.map { sceneHandles[$0]! } + traversal
-        let shading = scene.shadingResources.map { sceneHandles[$0]! }
+        let geometry = SceneBindings(
+            root: root, dependencies: scene.intersectionResources.map { sceneHandles[$0]! } + traversal,
+            acceleration: top)
+        let shading = SceneBindings(
+            root: root, dependencies: scene.shadingResources.map { sceneHandles[$0]! })
         let compute = ComputePass(
             context: context, bindings: frame.bindings, bindingResources: frame.bindingResources)
         if !sceneBuilt { AccelerationStructurePasses.add(to: graph, scene: scene, handles: sceneHandles) }
@@ -33,7 +36,7 @@ enum PathTracingPasses {
                 PathIntersectionPass.add(
                     to: graph, compute: compute,
                     resources: .init(
-                        paths: input, counts: h.counts, indirect: h.indirect, hits: h.hits, acceleration: top,
+                        paths: input, counts: h.counts, indirect: h.indirect, hits: h.hits,
                         scene: geometry), bounce: bounce)
                 MaterialShadingPass.add(
                     to: graph, compute: compute,
@@ -45,8 +48,10 @@ enum PathTracingPasses {
                 ShadowTracePass.add(
                     to: graph, compute: compute,
                     resources: .init(
-                        shadows: h.shadows, acceleration: top, sceneRoot: root, counts: h.counts,
-                        indirect: h.indirect, sample: h.sample, traversal: traversal), bounce: bounce)
+                        shadows: h.shadows, counts: h.counts,
+                        indirect: h.indirect, sample: h.sample,
+                        scene: SceneBindings(root: root, dependencies: traversal, acceleration: top)),
+                    bounce: bounce)
                 QueueManagementPasses.finishBounce(
                     to: graph, compute: compute, resources: queues, bounce: bounce)
             }

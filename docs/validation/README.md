@@ -17,3 +17,5 @@
 `report.json` 保存 Release 数值；`gpu-validation-report.json` 和 `gpu-validation.log` 保存验证层结果。PNG 为真实渲染输出，无降噪、无后期修图。玻璃和间接光仍有采样噪声；球体使用几何法线，因此可见三角网格面。
 
 引擎基础改造后的测试见 [引擎基础验证](engine-foundation.md)，包括多实例、资源登记、延迟分配、图缓存和逐 Pass 统计。
+
+架构审查四项修复的回归记录见 [绑定与资源契约验证](contracts.md)。

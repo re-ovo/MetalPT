@@ -37,14 +37,18 @@ enum EngineValidation {
         try require(
             allocated == 1 && resources.texture(texture).width == 16, "Deferred texture allocation failed")
         let pool = TransientPool(context)
-        let small = try pool.buffer("growth", length: 257)
-        let smaller = try pool.buffer("growth", length: 300)
-        let large = try pool.buffer("growth", length: 1025)
+        let growth = TransientPool.Key()
+        let small = try pool.buffer(growth, label: "growth", length: 257)
+        pool.beginFrame()
+        let smaller = try pool.buffer(growth, label: "growth", length: 300)
+        pool.beginFrame()
+        let large = try pool.buffer(growth, label: "growth", length: 1025)
         try require(small === smaller && large.length >= 1025, "Buffer capacity reuse failed")
         pool.beginFrame()
         pool.trim()
         try require(pool.cachedBytes == 0, "Unused pool resources not retired")
 
+        try await PassBindingValidation.run(context)
         renderer.model.camera = OrbitCamera()
         renderer.model.exposure = 0
         renderer.model.paused = false
@@ -121,6 +125,39 @@ enum EngineValidation {
         do { try invalid.validate(); throw RenderFailure("Mismatched area light accepted") } catch let error
             as RenderFailure where error.message == "Mismatched area light accepted"
         { throw error } catch {}
+        let lampMesh = cornell.instances[cornell.lights[0].instance].mesh
+        invalid = cornell
+        invalid.meshes[lampMesh].triangles[1] = invalid.meshes[lampMesh].triangles[0]
+        do { try invalid.validate(); throw RenderFailure("Duplicate emitter triangle accepted") } catch let
+            error as RenderFailure where error.message == "Duplicate emitter triangle accepted"
+        { throw error } catch {}
+        invalid = cornell
+        for index in invalid.meshes[lampMesh].vertices.indices {
+            invalid.meshes[lampMesh].vertices[index].uv = [0.2, 0.2, 0, 0]
+        }
+        do { try invalid.validate(); throw RenderFailure("Noncanonical emitter UV accepted") } catch let error
+            as RenderFailure where error.message == "Noncanonical emitter UV accepted"
+        { throw error } catch {}
+        var alternate = cornell
+        var alternateLamp = SceneMesh()
+        let light = cornell.lights[0]
+        let o = light.origin, u = light.u, v = light.v
+        alternateLamp.triangle(
+            o, o + u, o + v, material: UInt32(light.material), uv: [[0, 0], [1, 0], [0, 1]])
+        alternateLamp.triangle(
+            o + u, o + u + v, o + v, material: UInt32(light.material), uv: [[1, 0], [1, 1], [0, 1]])
+        alternate.meshes[lampMesh] = alternateLamp
+        try alternate.validate()
+        var overlapping = SceneMesh()
+        overlapping.triangle(
+            o, o + u, o + u + v, material: UInt32(light.material), uv: [[0, 0], [1, 0], [1, 1]])
+        overlapping.triangle(
+            o, o + u, o + v, material: UInt32(light.material), uv: [[0, 0], [1, 0], [0, 1]])
+        invalid = cornell
+        invalid.meshes[lampMesh] = overlapping
+        do { try invalid.validate(); throw RenderFailure("Overlapping area light accepted") } catch let error
+            as RenderFailure where error.message == "Overlapping area light accepted"
+        { throw error } catch {}
         let oneLight = try await render(cornell, samples: 8)
         var twoLights = cornell
         let original = cornell.lights[0]
@@ -147,7 +184,8 @@ enum EngineValidation {
         renderer.model.paused = false
         renderer.sceneOverride = nil
         return [
-            "passed": true, "sharedMeshInstances": 2, "textureSlots": 3, "lightCount": 2,
+            "passBindingContracts": true, "emitterContracts": true, "passed": true, "sharedMeshInstances": 2,
+            "textureSlots": 3, "lightCount": 2,
             "instancedVsBakedDifference": bakedDifference,
             "graphCacheHits": renderer.lastFrameStats["graphCacheHits"]!,
         ]

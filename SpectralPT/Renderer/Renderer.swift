@@ -115,7 +115,7 @@ final class Renderer: NSObject, MTKViewDelegate {
             ProcessInfo.processInfo.environment["SPECTRAL_PROFILE"] == "1"
             ? try GraphProfiler(device: context.device, names: compiled.order.map { graph.passes[$0].name })
             : nil
-        lastGraph = graph.dump(compiled)
+        lastGraph = try graph.dump(compiled)
         if firstGraphDump && ProcessInfo.processInfo.environment["SPECTRAL_DUMP_GRAPH"] != nil {
             print(lastGraph)
             firstGraphDump = false
