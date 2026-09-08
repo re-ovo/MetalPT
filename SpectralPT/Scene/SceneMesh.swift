@@ -1,8 +1,29 @@
 import simd
 
 struct SceneMesh {
-    var vertices: [PTVertex] = []
-    var triangles: [PTTriangle] = []
+    struct Vertex: Equatable {
+        var position, normal, uv: SIMD4<Float>
+        var gpu: PTVertex { PTVertex(position: position, normal: normal, uv: uv) }
+    }
+    struct Triangle: Equatable {
+        var indices: SIMD4<UInt32>
+        var gpu: PTTriangle { PTTriangle(indices: indices) }
+    }
+    var id = MeshID()
+    /// Triangles reference these local slots, never scene material indices.
+    var materialSlotCount: Int {
+        Int(triangles.reduce(UInt32(0)) { max($0, $1.indices.w) }) + 1
+    }
+
+    func hasSameGeometry(as other: SceneMesh) -> Bool {
+        vertices.count == other.vertices.count && triangles.count == other.triangles.count
+            && zip(vertices, other.vertices).allSatisfy {
+                $0.position == $1.position && $0.normal == $1.normal && $0.uv == $1.uv
+            }
+            && zip(triangles, other.triangles).allSatisfy { $0.indices == $1.indices }
+    }
+    var vertices: [Vertex] = []
+    var triangles: [Triangle] = []
     mutating func triangle(
         _ a: SIMD3<Float>, _ b: SIMD3<Float>, _ c: SIMD3<Float>, material: UInt32,
         normals: [SIMD3<Float>]? = nil, uv: [SIMD2<Float>]? = nil
@@ -15,10 +36,10 @@ struct SceneMesh {
         for (i, p) in [a, b, c].enumerated() {
             let t = uv?[i] ?? [i == 1 ? 1 : 0, i == 2 ? 1 : 0]
             vertices.append(
-                PTVertex(
+                Vertex(
                     position: SIMD4(p, 1), normal: SIMD4(normals?[i] ?? normal, 0), uv: [t.x, t.y, 0, 0]))
         }
-        triangles.append(PTTriangle(indices: [base, base + 1, base + 2, material]))
+        triangles.append(Triangle(indices: [base, base + 1, base + 2, material]))
     }
     mutating func quad(
         _ a: SIMD3<Float>, _ b: SIMD3<Float>, _ c: SIMD3<Float>, _ d: SIMD3<Float>, _ m: UInt32
@@ -61,17 +82,17 @@ struct SceneMesh {
         quad([a.x, b.y, b.z], [b.x, b.y, b.z], [b.x, b.y, a.z], [a.x, b.y, a.z], m)
         quad([a.x, a.y, a.z], [b.x, a.y, a.z], [b.x, a.y, b.z], [a.x, a.y, b.z], m)
     }
-    mutating func prism() {
+    mutating func prism(material: UInt32 = 0) {
         // Closed, outward-wound triangular prism. Oblique side faces face the camera.
         let a: SIMD3<Float> = [0.65, 0.04, 0.35]
         let b: SIMD3<Float> = [0.65, 0.04, -0.35]
         let c: SIMD3<Float> = [-0.65, 0.04, 0]
         let h: SIMD3<Float> = [0, 1.7, 0]
-        triangle(a, c, b, material: 4)
-        triangle(a + h, b + h, c + h, material: 4)
-        quad(a, b, b + h, a + h, 4)
-        quad(b, c, c + h, b + h, 4)
-        quad(c, a, a + h, c + h, 4)
+        triangle(a, c, b, material: material)
+        triangle(a + h, b + h, c + h, material: material)
+        quad(a, b, b + h, a + h, material)
+        quad(b, c, c + h, b + h, material)
+        quad(c, a, a + h, c + h, material)
     }
 }
 

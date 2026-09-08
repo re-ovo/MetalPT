@@ -1,0 +1,92 @@
+{
+  "blackScenePassed" : true,
+  "cornell" : {
+    "litFraction" : 0.9819010416666667,
+    "meanRGB" : 0.3790341435185185
+  },
+  "cornellGPUms" : 10.745041770860553,
+  "cornellGPUmsStatistic" : "median, excluding first 4 frames",
+  "device" : "Apple M4",
+  "dispersionMeanAbsoluteDifference" : 0.018333626940359476,
+  "engineChecks" : {
+    "emitterContracts" : true,
+    "emptyScene" : true,
+    "graphCacheHits" : 121,
+    "incrementalBLAS" : true,
+    "instancedVsBakedDifference" : 0,
+    "lightCount" : 2,
+    "materialSlots" : true,
+    "passBindingContracts" : true,
+    "passed" : true,
+    "sceneHierarchy" : true,
+    "sharedMeshInstances" : 2,
+    "textureSlots" : 3
+  },
+  "frameResources" : {
+    "cachedBytes" : 53758464,
+    "graphCacheHits" : 102,
+    "graphCacheMisses" : 7,
+    "instanceCount" : 5,
+    "liveResources" : 43,
+    "meshCount" : 5,
+    "reusedBLASCount" : 0
+  },
+  "output" : "640x480",
+  "passed" : true,
+  "prism" : {
+    "litFraction" : 0.98815104166666667,
+    "meanRGB" : 0.51734381808278862
+  },
+  "prismGPUms" : 7.6739999931305647,
+  "prismGPUmsStatistic" : "median, excluding first 4 frames",
+  "prismNoDispersion" : {
+    "litFraction" : 0.98824218750000004,
+    "meanRGB" : 0.5269993021514161
+  },
+  "render" : "320x240",
+  "spectralChecks" : [
+    [
+      1.0000792741775513,
+      0.99999994039535522,
+      1.0003279447555542,
+      1
+    ],
+    [
+      1.5308486223220825,
+      1.5130640268325806,
+      1,
+      0.040000002831220627
+    ],
+    [
+      1.0000792741775513,
+      1.0000016689300537,
+      1.0003283023834229,
+      0
+    ],
+    [
+      1.0000749826431274,
+      0.99999678134918213,
+      1.0003247261047363,
+      0
+    ],
+    [
+      0.73000001907348633,
+      0.73000001907348633,
+      0.73000001907348633,
+      0.73000001907348633
+    ],
+    [
+      0.40713804960250854,
+      0.47478362917900085,
+      0.90962344408035278,
+      0.97053295373916626
+    ],
+    [
+      1.0000003576278687,
+      0,
+      0,
+      0
+    ]
+  ],
+  "spp" : 32
+}

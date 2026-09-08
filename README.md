@@ -18,7 +18,7 @@
 - `Renderer/RenderModel.swift`、`OrbitCamera.swift`：界面状态和相机数学。
 - `Renderer/Renderer.swift`：历史失效、帧调度和提交；`FrameSlot.swift`、`FrameResources.swift`：帧生命周期、延迟资源分配、资源池和参数绑定。
 - `Renderer/PathTracingPasses.swift`：执行顺序；`Renderer/Passes/`：各 pass 的资源访问声明与编码，`ComputePass` 提供编码，`WorkBindings` / `SceneBindings` 从各 Pass 的输入输出同时生成依赖与绑定；`RenderGraph.swift`：通用图编译与同步。
-- `Scene/`：`SceneMesh` 生成几何，`SceneDescription` 分离网格、实例、材质与灯光，`ProceduralScene` 描述内置场景，`SpectralData` 读取光谱数据。`Renderer/BindlessScene.swift` 负责 GPU 上传与加速结构配置。
+- `Scene/`：`SceneMesh` 生成带局部材质槽的几何，`SceneMaterial` 描述类型化材质，`SceneGraph` 管理稳定 ID、节点层级与变换缓存，`SceneDescription` 是编译后的扁平快照，`ProceduralScene` 描述内置场景，`SpectralData` 读取光谱数据。`Renderer/BindlessScene.swift` 负责 GPU 上传与加速结构配置。
 - `Shaders/`：`Sampling.h`、`Spectrum.h`、`BSDF.h` 提供可复用数学；路径追踪按相机生成、求交、着色、阴影、队列管理和累积分文件；`Display.metal` 与 `Validation.metal` 实现显示和数值验证。
 
 | Swift Pass 文件 | Shader 文件 / 职责 |

@@ -87,7 +87,9 @@ final class FrameResources {
         for entry in sceneSnapshot {
             imported[entry.handle] = graph.importResource(
                 entry.name, allocation: entry.allocation,
-                kind: entry.kind, initialized: entry.kind == .accelerationStructure ? sceneBuilt : true)
+                kind: entry.kind,
+                initialized: entry.kind == .accelerationStructure
+                    ? (sceneBuilt || scene.reusedAccelerationStructures.contains(entry.handle)) : true)
         }
         sceneHandles = imported
         bindings = try ComputeBindings(

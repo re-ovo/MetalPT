@@ -64,7 +64,8 @@ typedef struct {
 
 typedef struct {
     PTFloat4 transform[4];
-    PTUInt4 indices; // mesh, optional material override, optional light index, reserved
+    PTUInt4 indices; // mesh, material slot count, optional light index, reserved
+    PT_PTR(unsigned int) materials;
 } PTInstance;
 
 typedef struct {
@@ -110,7 +111,7 @@ _Static_assert(sizeof(PTFrame) == 112, "frame ABI");
 _Static_assert(sizeof(PTScene) == 80, "scene ABI");
 _Static_assert(sizeof(PTWork) == 64, "work ABI");
 _Static_assert(sizeof(PTMesh) == 16, "mesh ABI");
-_Static_assert(sizeof(PTInstance) == 80, "instance ABI");
+_Static_assert(sizeof(PTInstance) == 96, "instance ABI");
 _Static_assert(sizeof(PTLight) == 80, "light ABI");
 _Static_assert(sizeof(PTTexture) == 8, "texture ABI");
 #endif

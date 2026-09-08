@@ -1,16 +1,6 @@
 import Foundation
 import MetalKit
 
-struct RenderFailure: LocalizedError {
-    let message: String
-    init(_ message: String) {
-        self.message = message
-    }
-    var errorDescription: String? {
-        message
-    }
-}
-
 final class MetalContext {
     let device: MTLDevice
     let queue: MTL4CommandQueue

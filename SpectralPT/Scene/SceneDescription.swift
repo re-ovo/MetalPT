@@ -1,24 +1,11 @@
+import Foundation
 import simd
-
-struct SceneMaterial {
-    enum Kind: UInt32 { case diffuse, gold, dielectric, emitter }
-    var kind: Kind = .diffuse
-    var color = SIMD3<Float>(repeating: 0.73)
-    var roughness: Float = 0
-    var emission: Float = 0
-    var texture: Int = 0
-
-    var gpu: PTMaterial {
-        PTMaterial(
-            color: SIMD4(color, 0), optics: [kind == .emitter ? emission : roughness, 0, 0, 0],
-            flags: [kind.rawValue, UInt32(clamping: texture), 0, 0])
-    }
-}
 
 struct SceneInstance {
     var mesh: Int
     var transform = matrix_identity_float4x4
-    var materialOverride: Int? = nil
+    /// Mesh-local slot -> scene material index. GPU snapshots resolve this table per instance.
+    var materials: [Int] = []
 }
 
 struct SceneLight {
@@ -42,17 +29,17 @@ struct SceneDescription {
 
     mutating func addMesh(
         _ mesh: SceneMesh, transform: simd_float4x4 = matrix_identity_float4x4,
-        material: Int? = nil
+        materials bindings: [Int]
     ) -> Int {
         let index = meshes.count
         meshes.append(mesh)
-        instances.append(SceneInstance(mesh: index, transform: transform, materialOverride: material))
+        instances.append(SceneInstance(mesh: index, transform: transform, materials: bindings))
         return instances.count - 1
     }
 
     func validate() throws {
-        guard !meshes.isEmpty, !instances.isEmpty, !materials.isEmpty, !textures.isEmpty else {
-            throw RenderFailure("场景缺少几何、实例、材质或默认纹理")
+        guard !textures.isEmpty else {
+            throw RenderFailure("场景缺少默认纹理")
         }
         guard case .white = textures[0] else {
             throw RenderFailure("纹理第零槽必须为白色默认纹理")
@@ -76,7 +63,7 @@ struct SceneDescription {
             }
             for t in m.triangles {
                 guard t.indices.x < m.vertices.count, t.indices.y < m.vertices.count,
-                    t.indices.z < m.vertices.count, t.indices.w < materials.count
+                    t.indices.z < m.vertices.count
                 else {
                     throw RenderFailure("网格索引越界")
                 }
@@ -85,7 +72,8 @@ struct SceneDescription {
         for i in instances {
             let t = i.transform
             guard meshes.indices.contains(i.mesh),
-                i.materialOverride.map({ materials.indices.contains($0) }) ?? true,
+                i.materials.count == meshes[i.mesh].materialSlotCount,
+                i.materials.allSatisfy({ materials.indices.contains($0) }),
                 t.columns.0.w == 0, t.columns.1.w == 0, t.columns.2.w == 0, t.columns.3.w == 1,
                 abs(simd_determinant(t)) > 1e-8,
                 [t.columns.0, t.columns.1, t.columns.2, t.columns.3].allSatisfy({
@@ -115,7 +103,7 @@ struct SceneDescription {
             let expectedUV: [SIMD2<Float>] = [[0, 0], [1, 0], [1, 1], [0, 1]]
             var cornerTriangles: [Set<Int>] = []
             for triangle in mesh.triangles {
-                let material = instance.materialOverride ?? Int(triangle.indices.w)
+                let material = instance.materials[Int(triangle.indices.w)]
                 guard material == light.material else { throw RenderFailure("面积灯材质不匹配") }
                 let indices = [triangle.indices.x, triangle.indices.y, triangle.indices.z]
                 var ids: [Int] = []

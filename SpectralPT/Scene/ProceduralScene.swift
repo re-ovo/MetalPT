@@ -18,42 +18,42 @@ struct ProceduralScene {
         var scene = SceneDescription()
         scene.materials = [
             SceneMaterial(),
-            SceneMaterial(color: [0.72, 0.08, 0.045]),
-            SceneMaterial(color: [0.07, 0.52, 0.14]),
-            SceneMaterial(kind: .gold, color: [1, 1, 1], roughness: 0.22),
-            SceneMaterial(kind: .dielectric, color: [1, 1, 1]),
-            SceneMaterial(kind: .emitter, color: [1, 1, 1], emission: 12),
-            SceneMaterial(color: [0.8, 0.8, 0.8], texture: 1),
-            SceneMaterial(kind: .emitter, color: [1, 1, 1], emission: 4, texture: 1),
+            SceneMaterial(surface: .diffuse(reflectance: [0.72, 0.08, 0.045])),
+            SceneMaterial(surface: .diffuse(reflectance: [0.07, 0.52, 0.14])),
+            SceneMaterial(surface: .gold(roughness: 0.22)),
+            SceneMaterial(surface: .dielectric),
+            SceneMaterial(surface: .emitter(color: [1, 1, 1], strength: 12)),
+            SceneMaterial(surface: .diffuse(reflectance: [0.8, 0.8, 0.8]), texture: 1),
+            SceneMaterial(surface: .emitter(color: [1, 1, 1], strength: 4), texture: 1),
         ]
         var room = SceneMesh()
-        room.quad([-2, 0, 2], [2, 0, 2], [2, 0, -2], [-2, 0, -2], 6)
-        room.quad([-2, 0, -2], [2, 0, -2], [2, 3, -2], [-2, 3, -2], kind == .prism ? 7 : 0)
-        room.quad([-2, 3, -2], [2, 3, -2], [2, 3, 2], [-2, 3, 2], 0)
-        room.quad([-2, 0, 2], [-2, 0, -2], [-2, 3, -2], [-2, 3, 2], 1)
-        room.quad([2, 0, -2], [2, 0, 2], [2, 3, 2], [2, 3, -2], 2)
-        _ = scene.addMesh(room)
+        room.quad([-2, 0, 2], [2, 0, 2], [2, 0, -2], [-2, 0, -2], 0)
+        room.quad([-2, 0, -2], [2, 0, -2], [2, 3, -2], [-2, 3, -2], 1)
+        room.quad([-2, 3, -2], [2, 3, -2], [2, 3, 2], [-2, 3, 2], 2)
+        room.quad([-2, 0, 2], [-2, 0, -2], [-2, 3, -2], [-2, 3, 2], 3)
+        room.quad([2, 0, -2], [2, 0, 2], [2, 3, 2], [2, 3, -2], 4)
+        _ = scene.addMesh(room, materials: [6, kind == .prism ? 7 : 0, 0, 1, 2])
         let o: SIMD3<Float> = [-0.6, 2.97, -0.65]
         let u: SIMD3<Float> = [1.2, 0, 0]
         let v: SIMD3<Float> = [0, 0, 1.1]
         var lamp = SceneMesh()
-        lamp.quad(o, o + u, o + u + v, o + v, 5)
-        let lampInstance = scene.addMesh(lamp)
+        lamp.quad(o, o + u, o + u + v, o + v, 0)
+        let lampInstance = scene.addMesh(lamp, materials: [5])
         scene.lights.append(SceneLight(instance: lampInstance, material: 5, origin: o, u: u, v: v))
         if kind == .cornell {
             var gold = SceneMesh()
-            gold.sphere([-0.78, 0.67, -0.25], radius: 0.67, material: 3)
-            _ = scene.addMesh(gold)
+            gold.sphere([-0.78, 0.67, -0.25], radius: 0.67, material: 0)
+            _ = scene.addMesh(gold, materials: [3])
             var glass = SceneMesh()
-            glass.sphere([0.72, 0.75, 0.55], radius: 0.75, material: 4)
-            _ = scene.addMesh(glass)
+            glass.sphere([0.72, 0.75, 0.55], radius: 0.75, material: 0)
+            _ = scene.addMesh(glass, materials: [4])
             var box = SceneMesh()
             box.box([-0.35, 0, -1.55], [0.65, 1.2, -0.85], 0)
-            _ = scene.addMesh(box)
+            _ = scene.addMesh(box, materials: [0])
         } else {
             var prism = SceneMesh()
             prism.prism()
-            _ = scene.addMesh(prism)
+            _ = scene.addMesh(prism, materials: [4])
         }
         description = scene
     }

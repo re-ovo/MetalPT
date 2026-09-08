@@ -19,3 +19,5 @@
 引擎基础改造后的测试见 [引擎基础验证](engine-foundation.md)，包括多实例、资源登记、延迟分配、图缓存和逐 Pass 统计。
 
 架构审查四项修复的回归记录见 [绑定与资源契约验证](contracts.md)。
+
+场景模型升级验证见 [scene-model.md](scene-model.md)。

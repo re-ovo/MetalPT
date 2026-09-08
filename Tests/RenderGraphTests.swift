@@ -3,6 +3,7 @@ import Metal
 
 @main struct GraphTests {
     static func main() throws {
+        try SceneGraphTests.run()
         func require(_ b: Bool, _ message: String) {
             precondition(b, message)
         }
@@ -71,7 +72,7 @@ import Metal
         require(MemoryLayout<PTPath>.stride == 112 && MemoryLayout<PTFrame>.stride == 112, "shared ABI")
         require(MemoryLayout<PTScene>.stride == 80 && MemoryLayout<PTWork>.stride == 64, "bindless root ABI")
         require(
-            MemoryLayout<PTMesh>.stride == 16 && MemoryLayout<PTInstance>.stride == 80, "mesh/instance ABI")
+            MemoryLayout<PTMesh>.stride == 16 && MemoryLayout<PTInstance>.stride == 96, "mesh/instance ABI")
         require(
             MemoryLayout<PTLight>.stride == 80 && MemoryLayout<PTTexture>.stride == 8, "light/texture ABI")
         let lazy = RenderGraph()

@@ -4,7 +4,7 @@ enum AccelerationStructurePasses {
     static func add(
         to graph: RenderGraph, scene: BindlessScene, handles: [ResourceRegistry.Handle: RenderGraph.Resource]
     ) {
-        for (index, build) in scene.meshBuilds.enumerated() {
+        for (index, build) in scene.meshBuilds.enumerated() where build.required {
             graph.pass(
                 "Build BLAS \(index)",
                 accesses: build.inputs.map { .read(handles[$0]!, .accelerationStructure) } + [

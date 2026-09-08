@@ -23,8 +23,7 @@ kernel void intersectPaths(constant PTScene &s [[buffer(0)]],
         a.position = transform * a.position;
         b.position = transform * b.position;
         c.position = transform * c.position;
-        if (instance.indices.y != 0xffffffffu)
-            tri.w = instance.indices.y;
+        tri.w = instance.materials[tri.w];
         float3 bary = float3(1 - hit.triangle_barycentric_coord.x - hit.triangle_barycentric_coord.y,
                              hit.triangle_barycentric_coord);
         float3 ng = normalize(cross(b.position.xyz - a.position.xyz, c.position.xyz - a.position.xyz));

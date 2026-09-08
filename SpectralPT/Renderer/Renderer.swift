@@ -7,6 +7,7 @@ final class Renderer: NSObject, MTKViewDelegate {
     private let graphCache = RenderGraph.Cache()
     private(set) var lastFrameStats: [String: Int] = [:]
     private(set) var lastPassTimings: [String: Double] = [:]
+    var sceneGraph: SceneGraph? { didSet { sceneKind = nil } }
     var sceneOverride: SceneDescription? { didSet { sceneKind = nil } }
     private var slots: [FrameSlot] = []
     private var slotIndex = 0
@@ -60,9 +61,16 @@ final class Renderer: NSObject, MTKViewDelegate {
         let height = max(1, Int(Float(output.height) * model.scale))
         var reset = false
         if sceneKind != model.scene {
-            scene =
-                try sceneOverride.map { try BindlessScene(context, description: $0) }
-                ?? BindlessScene(context, kind: model.scene)
+            let description: SceneDescription
+            if var graph = sceneGraph {
+                description = try graph.compile()
+                sceneGraph = graph
+            } else {
+                var graph = try SceneGraph(
+                    description: sceneOverride ?? ProceduralScene(kind: model.scene).description)
+                description = try graph.compile()
+            }
+            scene = try BindlessScene(context, description: description, reusing: sceneBuilt ? scene : nil)
             sceneKind = model.scene
             sceneBuilt = false
             reset = true
@@ -107,6 +115,7 @@ final class Renderer: NSObject, MTKViewDelegate {
             "liveResources": resolved.liveAllocations.count,
             "cachedBytes": slot.pool.cachedBytes,
             "graphCacheHits": graphCache.hits, "graphCacheMisses": graphCache.misses,
+            "reusedBLASCount": scene.reusedAccelerationStructures.count,
             "meshCount": scene.meshBuilds.count,
             "instanceCount": scene.tlasDescriptor.instanceCount,
         ]
