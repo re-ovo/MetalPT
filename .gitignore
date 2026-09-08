@@ -29,4 +29,7 @@ xcuserdata/
 *.swo
 *~
 
+# Model files
+models/
+
 # Keep curated screenshots, reports, and logs in docs/validation tracked.
