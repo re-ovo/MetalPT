@@ -3,9 +3,9 @@
 ## Project Structure & Module Organization
 
 - `SpectralPT/ContentView.swift` contains controls; `Views/MetalViewport.swift` bridges MetalKit and mouse input.
-- `Renderer/` separates orchestration (`Renderer`), pass declarations (`PathTracingPasses`), frame resources, camera/state, Render Graph, and GPU scene upload (`BindlessScene`). Paths are relative to `SpectralPT/`.
+- `Renderer/` separates orchestration (`Renderer`), pass ordering (`PathTracingPasses`), individual pass declarations (`Passes/`), frame resources, camera/state, Render Graph, and GPU scene upload (`BindlessScene`). Paths are relative to `SpectralPT/`.
 - `Scene/` contains CPU geometry, demo descriptions, and optical data parsing. `Renderer/Shared.h` defines the CPU/GPU ABI.
-- `Shaders/` separates sampling, spectra, and BSDF headers from `Wavefront.metal`, `Display.metal`, and `Validation.metal`. Shared shader helpers must be inline to avoid duplicate definitions.
+- `Shaders/` separates sampling, spectra, and BSDF headers from per-stage `.metal` files (camera, intersection, shading, shadows, queues, accumulation, display, validation). Shared shader helpers must be inline to avoid duplicate definitions.
 - `Resources/` holds spectral data/licenses; `Assets.xcassets` holds app assets. `Tests/`, `scripts/`, and `docs/validation/` contain tests, workflows, and outputs at repository root.
 
 ## Build, Test, and Development Commands
