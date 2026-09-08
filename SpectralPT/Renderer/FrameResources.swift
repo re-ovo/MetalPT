@@ -19,102 +19,90 @@ struct FrameParameters {
         model.camera.fill(&constants, aspect: Float(width) / Float(height))
         constants.size = [UInt32(width), UInt32(height), sampleIndex, 0]
         constants.settings = [UInt32(model.maxDepth), reset ? 1 : 0, model.dispersion ? 1 : 0, 0x1234_5678]
-        constants.display = [model.exposure, 0, 12, validationMode]
+        constants.display = [model.exposure, 0, 0, validationMode]
     }
 }
 
-/// Owns frame-local allocations and bindings until the frame slot completes.
+/// Declares transient resources first; only the compiled graph's live resources are materialized.
 final class FrameResources {
     struct Handles {
         let pathA, pathB, hits, shadows, sample, counts, indirect: RenderGraph.Resource
     }
-
     let graph = RenderGraph()
     let parameters: FrameParameters
     let handles: Handles
-    let counts: MTLBuffer
-    let radiance: MTLBuffer
-    let indirect: MTLBuffer
-    let tables: [MTL4ArgumentTable]
-    let residency: MTLResidencySet
-    private let keepAlive: [Any]
+    let accumulation: RenderGraph.Resource
+    let output: RenderGraph.Resource
+    let displayColor: RenderGraph.Resource
+    let sceneHandles: [ResourceRegistry.Handle: RenderGraph.Resource]
+    let bindings: ComputeBindings
+    let bindingResources: [RenderGraph.Resource]
+    private(set) var resolved: RenderGraph.ResolvedResources?
+    private(set) var residency: MTLResidencySet?
+    private let sceneSnapshot: [ResourceRegistry.Entry]
+    private let scene: BindlessScene
+    private let context: MetalContext
+    private let pool: TransientPool
 
     init(
-        context: MetalContext, slot: FrameSlot, scene: BindlessScene, accumulation: MTLBuffer,
-        output: MTLTexture, parameters: FrameParameters
+        context: MetalContext, slot: FrameSlot, scene: BindlessScene, sceneBuilt: Bool,
+        accumulation: MTLBuffer, output: MTLTexture, parameters: FrameParameters, shouldTrace: Bool
     ) throws {
+        self.context = context
+        self.pool = slot.pool
+        self.scene = scene
         self.parameters = parameters
+        sceneSnapshot = scene.resources
+        let graph = self.graph
+        let pool = slot.pool
         let n = parameters.pixelCount
-        let (pathA, input) = try graph.createBuffer("Path queue A", length: n * MemoryLayout<PTPath>.stride) {
-            try slot.pool.buffer("Path queue A", length: $0, shared: false)
-        }
-        let (pathB, next) = try graph.createBuffer("Path queue B", length: n * MemoryLayout<PTPath>.stride) {
-            try slot.pool.buffer("Path queue B", length: $0, shared: false)
-        }
-        let (hitR, hits) = try graph.createBuffer("Intersections", length: n * MemoryLayout<PTHit>.stride) {
-            try slot.pool.buffer("Intersections", length: $0, shared: false)
-        }
-        let (shadowR, shadows) = try graph.createBuffer(
-            "Shadow queue", length: n * MemoryLayout<PTShadow>.stride
-        ) {
-            try slot.pool.buffer("Shadow queue", length: $0, shared: false)
-        }
-        let (sampleR, radiance) = try graph.createBuffer("Sample XYZ", length: n * 16) {
-            try slot.pool.buffer("Sample XYZ", length: $0, shared: true)
-        }
-        let (countsR, counts) = try graph.createBuffer("Queue counters and diagnostics", length: 32) {
-            try slot.pool.buffer("Queue counters and diagnostics", length: $0, shared: true)
-        }
-        let (indirectR, indirect) = try graph.createBuffer("GPU dispatch arguments", length: 32) {
-            try slot.pool.buffer("GPU dispatch arguments", length: $0, shared: false)
-        }
-        let frames = try slot.pool.buffer(
-            "Frame and bounce constants", length: 256 * parameters.maxDepth, shared: true)
-        var work = PTWork()
-        work.inputPaths = input.gpuAddress
-        work.outputPaths = next.gpuAddress
-        work.hits = hits.gpuAddress
-        work.shadows = shadows.gpuAddress
-        work.radiance = radiance.gpuAddress
-        work.accumulation = accumulation.gpuAddress
-        work.counts = counts.gpuAddress
-        work.indirect = indirect.gpuAddress
-        let rootA = try context.upload([work], "Work root A")
-        work.inputPaths = next.gpuAddress
-        work.outputPaths = input.gpuAddress
-        let rootB = try context.upload([work], "Work root B")
-        var tables: [MTL4ArgumentTable] = []
-        for bounce in 0..<parameters.maxDepth {
-            var frame = parameters.constants
-            frame.size.w = UInt32(bounce)
-            frame.lightOrigin = scene.lightOrigin
-            frame.lightU = scene.lightU
-            frame.lightV = scene.lightV
-            frame.lightNormal = scene.lightNormal
-            frame.display.y = scene.lightArea
-            withUnsafeBytes(of: &frame) {
-                frames.contents().advanced(by: bounce * 256).copyMemory(
-                    from: $0.baseAddress!, byteCount: $0.count)
+        func buffer(_ name: String, _ length: Int, shared: Bool = false) throws -> RenderGraph.Resource {
+            try graph.createBuffer(name, description: BufferDescription(length: length, shared: shared)) {
+                description in
+                try pool.buffer(name, length: description.length, shared: description.shared)
             }
-            tables.append(
-                try context.table(
-                    scene: scene.root, work: bounce % 2 == 0 ? rootA : rootB, frame: frames,
-                    offset: bounce * 256, output: output))
         }
-        let allocations: [MTLAllocation] =
-            scene.allocations + [
-                input, next, hits, shadows, radiance, counts, indirect, frames, rootA, rootB, accumulation,
-                output,
-            ]
-        let residency = try context.residency(allocations)
-        keepAlive = [scene, accumulation, residency, tables, rootA, rootB, output]
-        self.counts = counts
-        self.radiance = radiance
-        self.indirect = indirect
-        self.tables = tables
-        self.residency = residency
         handles = Handles(
-            pathA: pathA, pathB: pathB, hits: hitR, shadows: shadowR,
-            sample: sampleR, counts: countsR, indirect: indirectR)
+            pathA: try buffer("Path queue A", n * MemoryLayout<PTPath>.stride),
+            pathB: try buffer("Path queue B", n * MemoryLayout<PTPath>.stride),
+            hits: try buffer("Intersections", n * MemoryLayout<PTHit>.stride),
+            shadows: try buffer("Shadow queue", n * MemoryLayout<PTShadow>.stride),
+            sample: try buffer("Sample XYZ", n * 16, shared: true),
+            counts: try buffer("Queue counters", 32, shared: true),
+            indirect: try buffer("Indirect dispatch", 32))
+        self.accumulation = graph.importResource(
+            "Persistent XYZ", allocation: accumulation, initialized: !parameters.reset)
+        self.output = graph.importResource("Drawable", allocation: output, kind: .texture, initialized: false)
+        displayColor = try graph.createTexture(
+            "Display color",
+            description: TextureDescription(
+                width: output.width, height: output.height, pixelFormat: output.pixelFormat)
+        ) { description in
+            try pool.texture("Display color", description: description)
+        }
+        var imported: [ResourceRegistry.Handle: RenderGraph.Resource] = [:]
+        for entry in sceneSnapshot {
+            imported[entry.handle] = graph.importResource(
+                entry.name, allocation: entry.allocation,
+                kind: entry.kind, initialized: entry.kind == .accelerationStructure ? sceneBuilt : true)
+        }
+        sceneHandles = imported
+        bindings = try ComputeBindings(
+            context: context, pool: pool, parameters: parameters,
+            sceneRoot: scene.root, depth: shouldTrace ? parameters.maxDepth : 1)
+        bindingResources = bindings.allocations.enumerated().map {
+            graph.importResource("Frame binding \($0.offset)", allocation: $0.element)
+        }
+    }
+
+    func materialize(_ compiled: RenderGraph.Compiled) throws {
+        let resources = try graph.materialize(compiled)
+        try bindings.prepare(
+            resources: resources, handles: handles, accumulation: accumulation,
+            outputTexture: resources.texture(displayColor))
+        // All directly and indirectly accessed allocations come from the same graph declarations.
+        residency = try context.residency(resources.liveAllocations)
+        resolved = resources
+        pool.trim()
     }
 }

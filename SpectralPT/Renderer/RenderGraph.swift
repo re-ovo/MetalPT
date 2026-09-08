@@ -26,7 +26,7 @@ nonisolated final class RenderGraph {
         let accesses: [Access]
         let sideEffect: Bool
         let after: [Int]
-        let encode: (MTL4CommandBuffer) throws -> Void
+        let encode: (MTL4CommandBuffer, ResolvedResources) throws -> Void
     }
     struct Barrier {
         let from: MTLStages
@@ -48,30 +48,91 @@ nonisolated final class RenderGraph {
     private var resources: [(String, Kind, Bool)] = []
     private(set) var passes: [Pass] = []
     private var allocations: [Resource: MTLAllocation] = [:]
-    /// Creation is backed by a completed-frame pool supplied by the caller. Allocation
-    /// reuse spans frames; no two live graph resources alias the same pooled name.
-    func createBuffer(_ name: String, length: Int, allocate: (Int) throws -> MTLBuffer) throws -> (
-        Resource, MTLBuffer
-    ) {
-        guard length > 0 else {
-            throw GraphError.invalid("Invalid buffer size: \(name)")
+    private var factories: [Resource: () throws -> MTLAllocation] = [:]
+    private var importedObjects: [ObjectIdentifier: Resource] = [:]
+
+    /// Captures no graph, so pass closures can safely resolve only their declared resources.
+    struct ResolvedResources {
+        fileprivate let allocations: [Resource: MTLAllocation]
+        func buffer(_ handle: Resource) throws -> MTLBuffer {
+            guard let value = allocations[handle] as? MTLBuffer else {
+                throw GraphError.invalid("Buffer was culled, not declared, or has the wrong type")
+            }
+            return value
         }
-        let buffer = try allocate(length)
-        let handle = resource(name)
-        allocations[handle] = buffer
-        return (handle, buffer)
+        func texture(_ handle: Resource) throws -> MTLTexture {
+            guard let value = allocations[handle] as? MTLTexture else {
+                throw GraphError.invalid("Texture was culled, not declared, or has the wrong type")
+            }
+            return value
+        }
+        var liveAllocations: [MTLAllocation] { Array(allocations.values) }
     }
+
+    func createBuffer(
+        _ name: String, description: BufferDescription,
+        allocate: @escaping (BufferDescription) throws -> MTLBuffer
+    ) throws -> Resource {
+        guard description.length > 0 else { throw GraphError.invalid("Invalid buffer size: \(name)") }
+        let handle = resource(name)
+        factories[handle] = { try allocate(description) }
+        return handle
+    }
+
+    func createTexture(
+        _ name: String, description: TextureDescription,
+        allocate: @escaping (TextureDescription) throws -> MTLTexture
+    ) throws -> Resource {
+        guard description.width > 0, description.height > 0 else {
+            throw GraphError.invalid("Invalid texture size: \(name)")
+        }
+        let handle = resource(name, kind: .texture)
+        factories[handle] = { try allocate(description) }
+        return handle
+    }
+
+    /// Allocate only after dependency compilation and dead-pass elimination.
+    func materialize(_ compiled: Compiled) throws -> ResolvedResources {
+        var result: [Resource: MTLAllocation] = [:]
+        for handle in compiled.lifetimes.keys.sorted(by: { $0.id < $1.id }) {
+            if let imported = allocations[handle] {
+                result[handle] = imported
+            } else if let allocate = factories[handle] {
+                result[handle] = try allocate()
+            }
+        }
+        return ResolvedResources(allocations: result)
+    }
+
+    final class Cache {
+        private var plans: [[String]: Compiled] = [:]
+        private var lru: [[String]] = []
+        private(set) var hits = 0
+        private(set) var misses = 0
+        let capacity: Int
+        init(capacity: Int = 16) { self.capacity = max(1, capacity) }
+        fileprivate func lookup(_ key: [String]) -> Compiled? {
+            guard let plan = plans[key] else { misses += 1; return nil }
+            hits += 1
+            lru.removeAll { $0 == key }; lru.append(key)
+            return plan
+        }
+        fileprivate func store(_ plan: Compiled, key: [String]) {
+            if plans[key] == nil, lru.count >= capacity { plans.removeValue(forKey: lru.removeFirst()) }
+            plans[key] = plan
+            lru.removeAll { $0 == key }; lru.append(key)
+        }
+    }
+
     func importResource(
         _ name: String, allocation: MTLAllocation, kind: Kind = .buffer, initialized: Bool = true
     ) -> Resource {
+        let identity = ObjectIdentifier(allocation)
+        if let existing = importedObjects[identity] { return existing }
         let handle = resource(name, kind: kind, imported: initialized)
+        importedObjects[identity] = handle
         allocations[handle] = allocation
         return handle
-    }
-    func liveAllocations(_ compiled: Compiled) -> [MTLAllocation] {
-        compiled.lifetimes.keys.compactMap {
-            allocations[$0]
-        }
     }
     func resource(_ name: String, kind: Kind = .buffer, imported: Bool = false) -> Resource {
         resources.append((name, kind, imported))
@@ -82,10 +143,41 @@ nonisolated final class RenderGraph {
         _ name: String, accesses: [Access], sideEffect: Bool = false, after: [Int] = [],
         encode: @escaping (MTL4CommandBuffer) throws -> Void
     ) -> Int {
+        pass(name, accesses: accesses, sideEffect: sideEffect, after: after) { command, _ in
+            try encode(command)
+        }
+    }
+
+    @discardableResult
+    func pass(
+        _ name: String, accesses: [Access], sideEffect: Bool = false, after: [Int] = [],
+        encode: @escaping (MTL4CommandBuffer, ResolvedResources) throws -> Void
+    ) -> Int {
         passes.append(
             Pass(name: name, accesses: accesses, sideEffect: sideEffect, after: after, encode: encode))
         return passes.count - 1
     }
+
+    func compile(cache: Cache) throws -> Compiled {
+        // Includes topology and initialization, excludes dimensions and frame-local allocations.
+        var key =
+            [String(resources.count)] + resources.flatMap { [$0.0, String(describing: $0.1), String($0.2)] }
+        key.append("passes")
+        for pass in passes {
+            key += [
+                pass.name, String(pass.sideEffect), String(describing: pass.after),
+                String(pass.accesses.count),
+            ]
+            for a in pass.accesses {
+                key += [String(a.resource.id), String(a.write), String(a.stage.rawValue)]
+            }
+        }
+        if let cached = cache.lookup(key) { return cached }
+        let result = try compile()
+        cache.store(result, key: key)
+        return result
+    }
+
     func compile() throws -> Compiled {
         var dependencies = Array(repeating: Set<Int>(), count: passes.count)
         var producers = dependencies
@@ -177,8 +269,11 @@ nonisolated final class RenderGraph {
         }
         return Compiled(order: order, barriers: barriers, lifetimes: lifetimes)
     }
-    func execute(_ compiled: Compiled, on command: MTL4CommandBuffer) throws {
-        for i in compiled.order {
+    func execute(
+        _ compiled: Compiled, resources: ResolvedResources, on command: MTL4CommandBuffer,
+        profiler: GraphProfiler? = nil
+    ) throws {
+        for (position, i) in compiled.order.enumerated() {
             if let b = compiled.barriers[i] {
                 guard let encoder = command.makeComputeCommandEncoder() else {
                     throw GraphError.invalid("Barrier encoder allocation failed")
@@ -187,7 +282,13 @@ nonisolated final class RenderGraph {
                 encoder.barrier(afterStages: b.from, beforeQueueStages: b.to, visibilityOptions: [])
                 encoder.endEncoding()
             }
-            try passes[i].encode(command)
+            profiler?.begin(position, command: command)
+            // Runtime resolver cannot access undeclared resources, even if another pass made them live.
+            let allowed = Set(passes[i].accesses.map(\.resource))
+            let scoped = ResolvedResources(
+                allocations: resources.allocations.filter { allowed.contains($0.key) })
+            try passes[i].encode(command, scoped)
+            profiler?.end(position, command: command)
         }
     }
     func dump(_ compiled: Compiled) -> String {

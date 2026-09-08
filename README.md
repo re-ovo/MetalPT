@@ -16,9 +16,9 @@
 
 - `Views/MetalViewport.swift`：SwiftUI / MetalKit 桥接和鼠标事件；控制面板保留在 `ContentView.swift`。
 - `Renderer/RenderModel.swift`、`OrbitCamera.swift`：界面状态和相机数学。
-- `Renderer/Renderer.swift`：历史失效、帧调度和提交；`FrameSlot.swift`、`FrameResources.swift`：帧生命周期、资源池和参数绑定。
-- `Renderer/PathTracingPasses.swift`：执行顺序；`Renderer/Passes/`：各 pass 的资源访问声明与编码，公共 context 提供资源导入和 dispatch；`RenderGraph.swift`：通用图编译与同步。
-- `Scene/`：`SceneMesh` 生成几何，`ProceduralScene` 描述内置场景，`SpectralData` 读取光谱数据。`Renderer/BindlessScene.swift` 负责 GPU 上传与加速结构配置。
+- `Renderer/Renderer.swift`：历史失效、帧调度和提交；`FrameSlot.swift`、`FrameResources.swift`：帧生命周期、延迟资源分配、资源池和参数绑定。
+- `Renderer/PathTracingPasses.swift`：执行顺序；`Renderer/Passes/`：各 pass 的资源访问声明与编码，`ComputePass` 提供编码，资源输入输出由各 Pass 的结构声明；`RenderGraph.swift`：通用图编译与同步。
+- `Scene/`：`SceneMesh` 生成几何，`SceneDescription` 分离网格、实例、材质与灯光，`ProceduralScene` 描述内置场景，`SpectralData` 读取光谱数据。`Renderer/BindlessScene.swift` 负责 GPU 上传与加速结构配置。
 - `Shaders/`：`Sampling.h`、`Spectrum.h`、`BSDF.h` 提供可复用数学；路径追踪按相机生成、求交、着色、阴影、队列管理和累积分文件；`Display.metal` 与 `Validation.metal` 实现显示和数值验证。
 
 | Swift Pass 文件 | Shader 文件 / 职责 |
@@ -29,12 +29,13 @@
 | `ShadowTracePass.swift` | `ShadowTrace.metal`：阴影求交与贡献合并 |
 | `QueueManagementPasses.swift` | `QueueManagement.metal`：反弹准备、阴影间接参数、队列推进 |
 | `AccumulationPass.swift` | `Accumulation.metal`：XYZ 渐进累积 |
-| `DisplayPass.swift` | `Display.metal`：曝光、色调映射和显示 |
+| `DisplayPass.swift` | `Display.metal`：曝光、色调映射，写入图管理的纹理 |
+| `PresentPass.swift` | 复制显示纹理到 drawable |
 | `AccelerationStructurePasses.swift` | Metal 加速结构构建命令：BLAS / TLAS |
 
-新增 pass 时在 `Renderer/Passes/` 定义访问声明与编码，在 `PathTracingPasses` 安排执行顺序，并维护对应着色器入口及 `MetalContext` 的 pipeline 注册。编码闭包只捕获所需资源，避免捕获包含 graph 的整个 context 而形成引用环。共享 MSL 函数放入带包含保护的头文件并声明为 `inline`；kernel 只在一个 `.metal` 编译单元定义。CPU/GPU 数据布局继续统一维护在 `Renderer/Shared.h`。
+新增 pass 时在 `Renderer/Passes/` 定义访问声明与编码，在 `PathTracingPasses` 安排执行顺序，并维护对应着色器入口及 `MetalContext` 的 pipeline 注册。编码闭包只捕获所需资源，避免捕获 graph 而形成引用环。共享 MSL 函数放入带包含保护的头文件并声明为 `inline`；kernel 只在一个 `.metal` 编译单元定义。CPU/GPU 数据布局继续统一维护在 `Renderer/Shared.h`。
 
-以上路径均相对于 `SpectralPT/`。本轮仅拆分职责，保持 kernel 名称、共享 ABI、pass 顺序和采样算法不变。
+以上路径均相对于 `SpectralPT/`。场景表支持多个网格、实例、纹理和灯光；资源登记、Pass 接口与图分配规则见 [架构说明](docs/architecture.md)。
 
 ## 实现
 

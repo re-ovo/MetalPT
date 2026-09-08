@@ -158,6 +158,16 @@ enum ValidationRunner {
             }
             try renderer.lastGraph.write(
                 to: folder.appendingPathComponent("render-graph.txt"), atomically: true, encoding: .utf8)
+            report["frameResources"] = renderer.lastFrameStats
+            if env["SPECTRAL_PROFILE"] == "1" {
+                guard !renderer.lastPassTimings.isEmpty,
+                    renderer.lastPassTimings.values.allSatisfy({ $0.isFinite && $0 >= 0 })
+                else {
+                    throw RenderFailure("Missing or invalid pass timestamps")
+                }
+                report["passGPUms"] = renderer.lastPassTimings
+            }
+            report["engineChecks"] = try await EngineValidation.run(renderer, output: output)
             report["passed"] = true
             try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]).write(
                 to: folder.appendingPathComponent("report.json"))

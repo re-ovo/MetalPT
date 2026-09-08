@@ -68,8 +68,39 @@ import Metal
         require(
             ac.barriers[1]!.from == .accelerationStructure && ac.barriers[1]!.to == .dispatch,
             "AS stage transition")
-        require(MemoryLayout<PTPath>.stride == 112 && MemoryLayout<PTFrame>.stride == 176, "shared ABI")
-        require(MemoryLayout<PTScene>.stride == 64 && MemoryLayout<PTWork>.stride == 64, "bindless root ABI")
+        require(MemoryLayout<PTPath>.stride == 112 && MemoryLayout<PTFrame>.stride == 112, "shared ABI")
+        require(MemoryLayout<PTScene>.stride == 80 && MemoryLayout<PTWork>.stride == 64, "bindless root ABI")
+        require(
+            MemoryLayout<PTMesh>.stride == 16 && MemoryLayout<PTInstance>.stride == 80, "mesh/instance ABI")
+        require(
+            MemoryLayout<PTLight>.stride == 80 && MemoryLayout<PTTexture>.stride == 8, "light/texture ABI")
+        let lazy = RenderGraph()
+        var allocated = 0
+        let unusedBuffer = try lazy.createBuffer("dead buffer", description: BufferDescription(length: 4096))
+        { _ in
+            allocated += 1
+            throw RenderGraph.GraphError.invalid("dead buffer allocated")
+        }
+        let unusedTexture = try lazy.createTexture(
+            "dead texture", description: TextureDescription(width: 16, height: 16)
+        ) { _ in
+            allocated += 1
+            throw RenderGraph.GraphError.invalid("dead texture allocated")
+        }
+        lazy.pass("dead producer", accesses: [.write(unusedBuffer), .write(unusedTexture)]) { _ in }
+        lazy.pass("external", accesses: [], sideEffect: true) { _ in }
+        let lazyPlan = try lazy.compile()
+        let resolved = try lazy.materialize(lazyPlan)
+        require(allocated == 0 && resolved.liveAllocations.isEmpty, "culling must precede allocation")
+        do { _ = try resolved.buffer(unusedBuffer); fatalError("culled buffer resolved") } catch {}
+        let cache = RenderGraph.Cache(capacity: 2)
+        _ = try graph.compile(cache: cache)
+        let cached = try graph.compile(cache: cache)
+        require(cache.hits == 1 && cache.misses == 1 && cached.order == c.order, "structural cache hit")
+        graph.pass("new side effect", accesses: [], sideEffect: true) { _ in }
+        _ = try graph.compile(cache: cache)
+        require(cache.misses == 2, "topology invalidates cache")
+        do { _ = try invalid.compile(cache: cache); fatalError("cache bypassed invalid read") } catch {}
         print(
             "RenderGraph and ABI tests passed (culling, RAW/WAR/WAW, lifecycle, invalid read, cycle, AS stages)."
         )

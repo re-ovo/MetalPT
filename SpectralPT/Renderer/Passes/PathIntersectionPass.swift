@@ -1,13 +1,15 @@
 import Metal
 
-extension PathTracingPassContext {
-    func intersectPaths(bounce: Int) {
-        let read = bounce % 2 == 0 ? pathA : pathB
-        dispatch(
-            "intersectPaths",
-            [
-                .read(read), .read(countsR), .read(indirectR), .read(top), .read(geometry),
-                .write(hitR),
-            ], bounce: bounce, indirectOffset: 0)
+enum PathIntersectionPass {
+    struct Resources {
+        let paths, counts, indirect, hits, acceleration: RenderGraph.Resource
+        let scene: [RenderGraph.Resource]
+    }
+    static func add(to graph: RenderGraph, compute: ComputePass, resources io: Resources, bounce: Int) {
+        compute.add(
+            to: graph, kernel: "intersectPaths",
+            accesses: [.read(io.paths), .read(io.counts), .read(io.acceleration), .write(io.hits)]
+                + io.scene.map { .read($0) },
+            bounce: bounce, indirect: io.indirect)
     }
 }

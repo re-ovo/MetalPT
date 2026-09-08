@@ -52,20 +52,40 @@ typedef struct {
 
 typedef struct {
     PTFloat4 eye, right, up, forward;
-    PTFloat4 lightOrigin, lightU, lightV, lightNormal;
     PTUInt4 size;     // width, height, sample index, bounce
     PTUInt4 settings; // max depth, reset, dispersion, seed
-    PTFloat4 display; // exposure, light area, emission, spare
+    PTFloat4 display; // exposure, reserved, reserved, validation mode
 } PTFrame;
 
 typedef struct {
     PT_PTR(PTVertex) vertices;
     PT_PTR(PTTriangle) triangles;
+} PTMesh;
+
+typedef struct {
+    PTFloat4 transform[4];
+    PTUInt4 indices; // mesh, optional material override, optional light index, reserved
+} PTInstance;
+
+typedef struct {
+    PTFloat4 origin, u, v, normalArea;
+    PTUInt4 indices; // material, instance, reserved, reserved
+} PTLight;
+
+typedef struct {
+    PT_TEX value;
+} PTTexture;
+
+typedef struct {
+    PT_PTR(PTMesh) meshes;
+    PT_PTR(PTInstance) instances;
     PT_PTR(PTMaterial) materials;
     PT_PTR(PTFloat4) cie;
     PT_PTR(PTFloat4) gold;
-    PT_TEX textures[2];
+    PT_PTR(PTTexture) textures;
+    PT_PTR(PTLight) lights;
     PT_AS acceleration;
+    PTUInt4 counts; // meshes, instances, textures, lights
 } PTScene;
 
 typedef struct {
@@ -86,8 +106,12 @@ typedef struct {
 _Static_assert(sizeof(PTVertex) == 48, "vertex ABI");
 _Static_assert(sizeof(PTMaterial) == 48, "material ABI");
 _Static_assert(sizeof(PTPath) == 112, "path ABI");
-_Static_assert(sizeof(PTFrame) == 176, "frame ABI");
-_Static_assert(sizeof(PTScene) == 64, "scene ABI");
+_Static_assert(sizeof(PTFrame) == 112, "frame ABI");
+_Static_assert(sizeof(PTScene) == 80, "scene ABI");
 _Static_assert(sizeof(PTWork) == 64, "work ABI");
+_Static_assert(sizeof(PTMesh) == 16, "mesh ABI");
+_Static_assert(sizeof(PTInstance) == 80, "instance ABI");
+_Static_assert(sizeof(PTLight) == 80, "light ABI");
+_Static_assert(sizeof(PTTexture) == 8, "texture ABI");
 #endif
 #endif

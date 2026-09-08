@@ -4,7 +4,7 @@
 
 - `SpectralPT/ContentView.swift` contains controls; `Views/MetalViewport.swift` bridges MetalKit and mouse input.
 - `Renderer/` separates orchestration (`Renderer`), pass ordering (`PathTracingPasses`), individual pass declarations (`Passes/`), frame resources, camera/state, Render Graph, and GPU scene upload (`BindlessScene`). Paths are relative to `SpectralPT/`.
-- `Scene/` contains CPU geometry, demo descriptions, and optical data parsing. `Renderer/Shared.h` defines the CPU/GPU ABI.
+- `Scene/` contains mesh/instance/material/light descriptions, CPU geometry, demos, and optical data parsing. `Renderer/Shared.h` defines the CPU/GPU ABI.
 - `Shaders/` separates sampling, spectra, and BSDF headers from per-stage `.metal` files (camera, intersection, shading, shadows, queues, accumulation, display, validation). Shared shader helpers must be inline to avoid duplicate definitions.
 - `Resources/` holds spectral data/licenses; `Assets.xcassets` holds app assets. `Tests/`, `scripts/`, and `docs/validation/` contain tests, workflows, and outputs at repository root.
 
@@ -28,7 +28,7 @@ These commands build, test graph/ABI, validate GPU execution, capture frames, an
 
 Use four-space indentation, `UpperCamelCase` types, and `lowerCamelCase` functions and properties. Shared C structures use the `PT` prefix. Keep blocks expanded. Run `scripts/format.sh` using Xcode's `swift-format` and `clang-format` (override with `CLANG_FORMAT`). Repository configurations set a 110-column limit for Swift, MSL, and C headers.
 
-Declare every pass resource access and GPU stage in Render Graph. Preserve residency for indirect references and retain resources until GPU completion. Update ABI assertions whenever shared layouts change. Document spectral units, PDFs, and weighting assumptions.
+Declare every pass resource access and GPU stage through its typed inputs in Render Graph. Register indirect scene resources in `ResourceRegistry`; materialize transients after graph compilation. Preserve residency for indirect references and retain resources until GPU completion. Update ABI assertions whenever shared layouts change. Document spectral units, PDFs, and weighting assumptions.
 
 ## Testing Guidelines
 
@@ -38,7 +38,7 @@ Cover changed behavior with graph/ABI checks or deterministic GPU scenarios. For
 
 ## Commit & Pull Request Guidelines
 
-History currently contains only `Initial Commit`; no established commit format exists. Use concise, imperative subjects such as `Fix wavelength PDF weighting`. Preserve unrelated working-tree changes.
+Use Conventional Commit types with concise Chinese subjects, such as `refactor(renderer): 拆分资源管理模块`. Preserve unrelated working-tree changes.
 
 PRs should explain the problem, resulting behavior, validation commands, and limitations. Link relevant issues and include before/after images for visual changes. Keep build products and large `.gputrace` bundles outside the repository. Preserve data attribution in `Resources/NOTICE.md`.
 

@@ -1,14 +1,17 @@
 import Metal
 
-extension PathTracingPassContext {
-    func shadePaths(bounce: Int) {
-        let read = bounce % 2 == 0 ? pathA : pathB
-        let write = bounce % 2 == 0 ? pathB : pathA
-        dispatch(
-            "shadePaths",
-            [
-                .read(read), .read(hitR), .read(geometry), .read(countsR), .read(indirectR),
-                .read(sampleR), .write(write), .write(shadowR), .write(countsR), .write(sampleR),
-            ], bounce: bounce, indirectOffset: 0)
+enum MaterialShadingPass {
+    struct Resources {
+        let paths, hits, counts, indirect, sample, nextPaths, shadows: RenderGraph.Resource
+        let scene: [RenderGraph.Resource]
+    }
+    static func add(to graph: RenderGraph, compute: ComputePass, resources io: Resources, bounce: Int) {
+        compute.add(
+            to: graph, kernel: "shadePaths",
+            accesses: [
+                .read(io.paths), .read(io.hits), .read(io.counts), .read(io.sample),
+                .write(io.nextPaths), .write(io.shadows), .write(io.counts), .write(io.sample),
+            ] + io.scene.map { .read($0) },
+            bounce: bounce, indirect: io.indirect)
     }
 }

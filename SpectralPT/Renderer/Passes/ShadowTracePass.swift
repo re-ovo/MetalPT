@@ -1,12 +1,17 @@
 import Metal
 
-extension PathTracingPassContext {
-    func traceShadows(bounce: Int) {
-        dispatch(
-            "traceShadows",
-            [
-                .read(shadowR), .read(top), .read(countsR), .read(indirectR), .read(sampleR),
-                .write(sampleR),
-            ], bounce: bounce, indirectOffset: 12)
+enum ShadowTracePass {
+    struct Resources {
+        let shadows, acceleration, sceneRoot, counts, indirect, sample: RenderGraph.Resource
+        let traversal: [RenderGraph.Resource]
+    }
+    static func add(to graph: RenderGraph, compute: ComputePass, resources io: Resources, bounce: Int) {
+        compute.add(
+            to: graph, kernel: "traceShadows",
+            accesses: [
+                .read(io.shadows), .read(io.acceleration), .read(io.sceneRoot), .read(io.counts),
+                .read(io.sample), .write(io.sample),
+            ] + io.traversal.map { .read($0) },
+            bounce: bounce, indirect: io.indirect, indirectOffset: 12)
     }
 }

@@ -4,6 +4,10 @@ import MetalKit
 final class Renderer: NSObject, MTKViewDelegate {
     let context: MetalContext
     let model: RenderModel
+    private let graphCache = RenderGraph.Cache()
+    private(set) var lastFrameStats: [String: Int] = [:]
+    private(set) var lastPassTimings: [String: Double] = [:]
+    var sceneOverride: SceneDescription? { didSet { sceneKind = nil } }
     private var slots: [FrameSlot] = []
     private var slotIndex = 0
     private var scene: BindlessScene?
@@ -51,11 +55,14 @@ final class Renderer: NSObject, MTKViewDelegate {
         }
         slot.retained.removeAll()
         slot.allocator.reset()
+        slot.pool.beginFrame()
         let width = max(1, Int(Float(output.width) * model.scale))
         let height = max(1, Int(Float(output.height) * model.scale))
         var reset = false
         if sceneKind != model.scene {
-            scene = try BindlessScene(context, kind: model.scene)
+            scene =
+                try sceneOverride.map { try BindlessScene(context, description: $0) }
+                ?? BindlessScene(context, kind: model.scene)
             sceneKind = model.scene
             sceneBuilt = false
             reset = true
@@ -87,23 +94,35 @@ final class Renderer: NSObject, MTKViewDelegate {
             model: model, width: width, height: height,
             sampleIndex: sampleIndex, reset: reset, validationMode: validationMode)
         let frame = try FrameResources(
-            context: context, slot: slot, scene: scene,
-            accumulation: accumulation, output: output, parameters: parameters)
+            context: context, slot: slot, scene: scene, sceneBuilt: sceneBuilt,
+            accumulation: accumulation, output: output, parameters: parameters, shouldTrace: shouldTrace)
         slot.retained = [frame]
         PathTracingPasses.populate(
-            context: context, scene: scene, sceneBuilt: sceneBuilt, frame: frame,
-            accumulation: accumulation, output: output, shouldTrace: shouldTrace)
+            context: context, scene: scene, sceneBuilt: sceneBuilt, frame: frame, shouldTrace: shouldTrace)
         let graph = frame.graph
-        let counts = frame.counts
-        let compiled = try graph.compile()
+        let compiled = try graph.compile(cache: graphCache)
+        try frame.materialize(compiled)
+        let resolved = frame.resolved!
+        lastFrameStats = [
+            "liveResources": resolved.liveAllocations.count,
+            "cachedBytes": slot.pool.cachedBytes,
+            "graphCacheHits": graphCache.hits, "graphCacheMisses": graphCache.misses,
+            "meshCount": scene.meshBuilds.count,
+            "instanceCount": scene.tlasDescriptor.instanceCount,
+        ]
+        let counts = try? resolved.buffer(frame.handles.counts)
+        let profiler =
+            ProcessInfo.processInfo.environment["SPECTRAL_PROFILE"] == "1"
+            ? try GraphProfiler(device: context.device, names: compiled.order.map { graph.passes[$0].name })
+            : nil
         lastGraph = graph.dump(compiled)
         if firstGraphDump && ProcessInfo.processInfo.environment["SPECTRAL_DUMP_GRAPH"] != nil {
             print(lastGraph)
             firstGraphDump = false
         }
         slot.command.beginCommandBuffer(allocator: slot.allocator)
-        slot.command.useResidencySet(frame.residency)
-        try graph.execute(compiled, on: slot.command)
+        slot.command.useResidencySet(frame.residency!)
+        try graph.execute(compiled, resources: resolved, on: slot.command, profiler: profiler)
         slot.command.endCommandBuffer()
         if context.sequence > 0 {
             context.queue.waitForEvent(context.event, value: context.sequence)
@@ -133,6 +152,10 @@ final class Renderer: NSObject, MTKViewDelegate {
                     self.model.gpuMilliseconds = ms
                     self.model.samples = completedSPP
                     self.model.resolution = "\(width) × \(height)"
+                    if let profiler {
+                        self.lastPassTimings = (try? profiler.resolve()) ?? [:]
+                    }
+                    guard let counts else { return }
                     let p = counts.contents().bindMemory(to: UInt32.self, capacity: 8)
                     self.model.diagnostics = "溢出 \(p[3]) · 非有限值 \(p[4])"
                     if p[3] > 0 || p[4] > 0 {
@@ -155,7 +178,7 @@ final class Renderer: NSObject, MTKViewDelegate {
             sampleIndex += 1
         }
         lastCounters = counts
-        lastRadiance = frame.radiance
+        lastRadiance = try? resolved.buffer(frame.handles.sample)
         return value
     }
     func waitForGPU() async {

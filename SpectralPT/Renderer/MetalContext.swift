@@ -51,8 +51,8 @@ final class MetalContext {
             pipelines[name] = try compiler.makeComputePipelineState(descriptor: p, compilerTaskOptions: nil)
         }
         precondition(MemoryLayout<PTVertex>.stride == 48 && MemoryLayout<PTMaterial>.stride == 48)
-        precondition(MemoryLayout<PTPath>.stride == 112 && MemoryLayout<PTFrame>.stride == 176)
-        precondition(MemoryLayout<PTScene>.stride == 64 && MemoryLayout<PTWork>.stride == 64)
+        precondition(MemoryLayout<PTPath>.stride == 112 && MemoryLayout<PTFrame>.stride == 112)
+        precondition(MemoryLayout<PTScene>.stride == 80 && MemoryLayout<PTWork>.stride == 64)
     }
     func buffer(_ length: Int, _ label: String, shared: Bool = false) throws -> MTLBuffer {
         guard

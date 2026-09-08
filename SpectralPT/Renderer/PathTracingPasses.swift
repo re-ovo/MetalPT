@@ -1,30 +1,63 @@
 import Metal
 
-/// Orders the wavefront passes; implementations and dependencies live in Passes/.
+/// Wires typed pass inputs and outputs. No pass receives the entire frame or scene context.
 enum PathTracingPasses {
     static func populate(
         context: MetalContext, scene: BindlessScene, sceneBuilt: Bool,
-        frame: FrameResources, accumulation: MTLBuffer, output: MTLTexture,
-        shouldTrace: Bool
+        frame: FrameResources, shouldTrace: Bool
     ) {
-        let passes = PathTracingPassContext(
-            context: context, scene: scene, sceneBuilt: sceneBuilt,
-            frame: frame, accumulation: accumulation, output: output)
-        if !sceneBuilt {
-            passes.buildAccelerationStructures()
-        }
+        let graph = frame.graph
+        let h = frame.handles
+        let sceneHandles = frame.sceneHandles
+        let root = sceneHandles[scene.rootHandle]!
+        let top = sceneHandles[scene.tlasHandle]!
+        // A TLAS indirectly references each mesh BLAS during traversal, even after the build frame.
+        let traversal = scene.meshBuilds.map { sceneHandles[$0.output]! }
+        let geometry = scene.intersectionResources.map { sceneHandles[$0]! } + traversal
+        let shading = scene.shadingResources.map { sceneHandles[$0]! }
+        let compute = ComputePass(
+            context: context, bindings: frame.bindings, bindingResources: frame.bindingResources)
+        if !sceneBuilt { AccelerationStructurePasses.add(to: graph, scene: scene, handles: sceneHandles) }
         if shouldTrace {
-            passes.generateCameraPaths()
+            CameraPathPass.add(
+                to: graph, compute: compute,
+                resources: .init(
+                    paths: h.pathA, sample: h.sample, counts: h.counts, accumulation: frame.accumulation),
+                reset: frame.parameters.reset, pixels: frame.parameters.pixelCount)
+            let queues = QueueManagementPasses.Resources(counts: h.counts, indirect: h.indirect)
             for bounce in 0..<frame.parameters.maxDepth {
-                passes.prepareBounce(bounce: bounce)
-                passes.intersectPaths(bounce: bounce)
-                passes.shadePaths(bounce: bounce)
-                passes.prepareShadow(bounce: bounce)
-                passes.traceShadows(bounce: bounce)
-                passes.finishBounce(bounce: bounce)
+                let input = bounce % 2 == 0 ? h.pathA : h.pathB
+                let output = bounce % 2 == 0 ? h.pathB : h.pathA
+                QueueManagementPasses.prepareBounce(
+                    to: graph, compute: compute, resources: queues, bounce: bounce)
+                PathIntersectionPass.add(
+                    to: graph, compute: compute,
+                    resources: .init(
+                        paths: input, counts: h.counts, indirect: h.indirect, hits: h.hits, acceleration: top,
+                        scene: geometry), bounce: bounce)
+                MaterialShadingPass.add(
+                    to: graph, compute: compute,
+                    resources: .init(
+                        paths: input, hits: h.hits, counts: h.counts, indirect: h.indirect, sample: h.sample,
+                        nextPaths: output, shadows: h.shadows, scene: shading), bounce: bounce)
+                QueueManagementPasses.prepareShadow(
+                    to: graph, compute: compute, resources: queues, bounce: bounce)
+                ShadowTracePass.add(
+                    to: graph, compute: compute,
+                    resources: .init(
+                        shadows: h.shadows, acceleration: top, sceneRoot: root, counts: h.counts,
+                        indirect: h.indirect, sample: h.sample, traversal: traversal), bounce: bounce)
+                QueueManagementPasses.finishBounce(
+                    to: graph, compute: compute, resources: queues, bounce: bounce)
             }
-            passes.accumulate()
+            AccumulationPass.add(
+                to: graph, compute: compute,
+                resources: .init(sample: h.sample, accumulation: frame.accumulation, counts: h.counts),
+                pixels: frame.parameters.pixelCount)
         }
-        passes.display()
+        DisplayPass.add(
+            to: graph, compute: compute,
+            resources: .init(accumulation: frame.accumulation, output: frame.displayColor))
+        PresentPass.add(to: graph, source: frame.displayColor, destination: frame.output)
     }
 }
