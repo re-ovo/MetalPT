@@ -1,0 +1,62 @@
+0: initialize [0]
+1: prepareBounce [0] [barrier]
+2: intersectPaths [0] [barrier]
+3: shadePaths [0] [barrier]
+4: prepareShadow [0] [barrier]
+5: traceShadows [0] [barrier]
+6: finishBounce [0] [barrier]
+7: prepareBounce [1] [barrier]
+8: intersectPaths [1] [barrier]
+9: shadePaths [1] [barrier]
+10: prepareShadow [1] [barrier]
+11: traceShadows [1] [barrier]
+12: finishBounce [1] [barrier]
+13: prepareBounce [2] [barrier]
+14: intersectPaths [2] [barrier]
+15: shadePaths [2] [barrier]
+16: prepareShadow [2] [barrier]
+17: traceShadows [2] [barrier]
+18: finishBounce [2] [barrier]
+19: prepareBounce [3] [barrier]
+20: intersectPaths [3] [barrier]
+21: shadePaths [3] [barrier]
+22: prepareShadow [3] [barrier]
+23: traceShadows [3] [barrier]
+24: finishBounce [3] [barrier]
+25: prepareBounce [4] [barrier]
+26: intersectPaths [4] [barrier]
+27: shadePaths [4] [barrier]
+28: prepareShadow [4] [barrier]
+29: traceShadows [4] [barrier]
+30: finishBounce [4] [barrier]
+31: prepareBounce [5] [barrier]
+32: intersectPaths [5] [barrier]
+33: shadePaths [5] [barrier]
+34: prepareShadow [5] [barrier]
+35: traceShadows [5] [barrier]
+36: finishBounce [5] [barrier]
+37: prepareBounce [6] [barrier]
+38: intersectPaths [6] [barrier]
+39: shadePaths [6] [barrier]
+40: prepareShadow [6] [barrier]
+41: traceShadows [6] [barrier]
+42: finishBounce [6] [barrier]
+43: prepareBounce [7] [barrier]
+44: intersectPaths [7] [barrier]
+45: shadePaths [7] [barrier]
+46: prepareShadow [7] [barrier]
+47: traceShadows [7] [barrier]
+48: finishBounce [7] [barrier]
+49: accumulate [0] [barrier]
+50: Display · XYZ → sRGB [barrier]
+Path queue A: 0...45
+Path queue B: 3...45
+Intersections: 2...45
+Shadow queue: 3...47
+Sample XYZ: 0...49
+Queue counters and diagnostics: 0...49
+GPU dispatch arguments: 1...47
+Bindless geometry / materials / spectral tables: 2...45
+TLAS: 2...47
+Persistent XYZ: 0...50
+Drawable: 50...50

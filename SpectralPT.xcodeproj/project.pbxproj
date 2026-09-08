@@ -6,27 +6,8 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXContainerItemProxy section */
-		C314BC2B304FF5F100DE68B9 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = C314BC13304FF5F000DE68B9 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = C314BC1A304FF5F000DE68B9;
-			remoteInfo = SpectralPT;
-		};
-		C314BC35304FF5F100DE68B9 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = C314BC13304FF5F000DE68B9 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = C314BC1A304FF5F000DE68B9;
-			remoteInfo = SpectralPT;
-		};
-/* End PBXContainerItemProxy section */
-
 /* Begin PBXFileReference section */
 		C314BC1B304FF5F000DE68B9 /* SpectralPT.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SpectralPT.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		C314BC2A304FF5F100DE68B9 /* SpectralPTTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpectralPTTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		C314BC34304FF5F100DE68B9 /* SpectralPTUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpectralPTUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -35,34 +16,10 @@
 			path = SpectralPT;
 			sourceTree = "<group>";
 		};
-		C314BC2D304FF5F100DE68B9 /* SpectralPTTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = SpectralPTTests;
-			sourceTree = "<group>";
-		};
-		C314BC37304FF5F100DE68B9 /* SpectralPTUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = SpectralPTUITests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		C314BC18304FF5F000DE68B9 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C314BC27304FF5F100DE68B9 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C314BC31304FF5F100DE68B9 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -76,8 +33,6 @@
 			isa = PBXGroup;
 			children = (
 				C314BC1D304FF5F000DE68B9 /* SpectralPT */,
-				C314BC2D304FF5F100DE68B9 /* SpectralPTTests */,
-				C314BC37304FF5F100DE68B9 /* SpectralPTUITests */,
 				C314BC1C304FF5F000DE68B9 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -86,8 +41,6 @@
 			isa = PBXGroup;
 			children = (
 				C314BC1B304FF5F000DE68B9 /* SpectralPT.app */,
-				C314BC2A304FF5F100DE68B9 /* SpectralPTTests.xctest */,
-				C314BC34304FF5F100DE68B9 /* SpectralPTUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -117,52 +70,6 @@
 			productReference = C314BC1B304FF5F000DE68B9 /* SpectralPT.app */;
 			productType = "com.apple.product-type.application";
 		};
-		C314BC29304FF5F100DE68B9 /* SpectralPTTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = C314BC41304FF5F100DE68B9 /* Build configuration list for PBXNativeTarget "SpectralPTTests" */;
-			buildPhases = (
-				C314BC26304FF5F100DE68B9 /* Sources */,
-				C314BC27304FF5F100DE68B9 /* Frameworks */,
-				C314BC28304FF5F100DE68B9 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				C314BC2C304FF5F100DE68B9 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				C314BC2D304FF5F100DE68B9 /* SpectralPTTests */,
-			);
-			name = SpectralPTTests;
-			packageProductDependencies = (
-			);
-			productName = SpectralPTTests;
-			productReference = C314BC2A304FF5F100DE68B9 /* SpectralPTTests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
-		C314BC33304FF5F100DE68B9 /* SpectralPTUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = C314BC44304FF5F100DE68B9 /* Build configuration list for PBXNativeTarget "SpectralPTUITests" */;
-			buildPhases = (
-				C314BC30304FF5F100DE68B9 /* Sources */,
-				C314BC31304FF5F100DE68B9 /* Frameworks */,
-				C314BC32304FF5F100DE68B9 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				C314BC36304FF5F100DE68B9 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				C314BC37304FF5F100DE68B9 /* SpectralPTUITests */,
-			);
-			name = SpectralPTUITests;
-			packageProductDependencies = (
-			);
-			productName = SpectralPTUITests;
-			productReference = C314BC34304FF5F100DE68B9 /* SpectralPTUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -175,14 +82,6 @@
 				TargetAttributes = {
 					C314BC1A304FF5F000DE68B9 = {
 						CreatedOnToolsVersion = 26.6;
-					};
-					C314BC29304FF5F100DE68B9 = {
-						CreatedOnToolsVersion = 26.6;
-						TestTargetID = C314BC1A304FF5F000DE68B9;
-					};
-					C314BC33304FF5F100DE68B9 = {
-						CreatedOnToolsVersion = 26.6;
-						TestTargetID = C314BC1A304FF5F000DE68B9;
 					};
 				};
 			};
@@ -201,28 +100,12 @@
 			projectRoot = "";
 			targets = (
 				C314BC1A304FF5F000DE68B9 /* SpectralPT */,
-				C314BC29304FF5F100DE68B9 /* SpectralPTTests */,
-				C314BC33304FF5F100DE68B9 /* SpectralPTUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		C314BC19304FF5F000DE68B9 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C314BC28304FF5F100DE68B9 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C314BC32304FF5F100DE68B9 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -239,34 +122,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		C314BC26304FF5F100DE68B9 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C314BC30304FF5F100DE68B9 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		C314BC2C304FF5F100DE68B9 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = C314BC1A304FF5F000DE68B9 /* SpectralPT */;
-			targetProxy = C314BC2B304FF5F100DE68B9 /* PBXContainerItemProxy */;
-		};
-		C314BC36304FF5F100DE68B9 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = C314BC1A304FF5F000DE68B9 /* SpectralPT */;
-			targetProxy = C314BC35304FF5F100DE68B9 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		C314BC3C304FF5F100DE68B9 /* Debug */ = {
@@ -324,7 +180,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.5;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
-				MTL_FAST_MATH = YES;
+				MTL_FAST_MATH = NO;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
@@ -381,7 +237,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.5;
 				MTL_ENABLE_DEBUG_INFO = NO;
-				MTL_FAST_MATH = YES;
+				MTL_FAST_MATH = NO;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
@@ -405,6 +261,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				MTL_LANGUAGE_REVISION = Metal40;
 				PRODUCT_BUNDLE_IDENTIFIER = me.rerere.SpectralPT;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -412,6 +269,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = SpectralPT/Renderer/Bridge.h;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -435,6 +293,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				MTL_LANGUAGE_REVISION = Metal40;
 				PRODUCT_BUNDLE_IDENTIFIER = me.rerere.SpectralPT;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -442,84 +301,9 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = SpectralPT/Renderer/Bridge.h;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-			};
-			name = Release;
-		};
-		C314BC42304FF5F100DE68B9 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.5;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = me.rerere.SpectralPTTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SpectralPT.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SpectralPT";
-			};
-			name = Debug;
-		};
-		C314BC43304FF5F100DE68B9 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.5;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = me.rerere.SpectralPTTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SpectralPT.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SpectralPT";
-			};
-			name = Release;
-		};
-		C314BC45304FF5F100DE68B9 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = me.rerere.SpectralPTUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = SpectralPT;
-			};
-			name = Debug;
-		};
-		C314BC46304FF5F100DE68B9 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = me.rerere.SpectralPTUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = SpectralPT;
 			};
 			name = Release;
 		};
@@ -540,24 +324,6 @@
 			buildConfigurations = (
 				C314BC3F304FF5F100DE68B9 /* Debug */,
 				C314BC40304FF5F100DE68B9 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		C314BC41304FF5F100DE68B9 /* Build configuration list for PBXNativeTarget "SpectralPTTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C314BC42304FF5F100DE68B9 /* Debug */,
-				C314BC43304FF5F100DE68B9 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		C314BC44304FF5F100DE68B9 /* Build configuration list for PBXNativeTarget "SpectralPTUITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C314BC45304FF5F100DE68B9 /* Debug */,
-				C314BC46304FF5F100DE68B9 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

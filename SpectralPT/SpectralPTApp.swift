@@ -1,32 +1,33 @@
-//
-//  SpectralPTApp.swift
-//  SpectralPT
-//
-//  Created by 冉江来 on 2026/9/8.
-//
-
 import SwiftUI
-import SwiftData
 
 @main
-struct SpectralPTApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+enum SpectralPTEntry {
+    static func main() {
+        if ProcessInfo.processInfo.environment["SPECTRAL_VALIDATE"] != nil {
+            // A single windowless harness, independent of macOS window restoration.
+            let app = NSApplication.shared
+            app.setActivationPolicy(.prohibited)
+            Task {
+                @MainActor in
+                do {
+                    await ValidationRunner.run(try Renderer(model: RenderModel()))
+                } catch {
+                    print("VALIDATION FAILED: \(error)")
+                    exit(1)
+                }
+            }
+            app.run()
+        } else {
+            SpectralPTApp.main()
         }
-    }()
+    }
+}
 
+struct SpectralPTApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(sharedModelContainer)
+        .defaultSize(width: 1280, height: 800)
     }
 }
