@@ -1,0 +1,32 @@
+# macOS metadata
+.DS_Store
+._*
+
+# Xcode user-specific settings (keep shared project/workspace settings)
+xcuserdata/
+*.xcuserstate
+
+# Build products and caches
+/build/
+/DerivedData/
+.build/
+*.app/
+*.dSYM/
+*.dSYM.zip
+*.xcarchive/
+*.o
+*.air
+*.metallib
+
+# Generated test results and GPU captures
+*.xcresult/
+*.xcactivitylog
+*.gputrace/
+*.trace/
+
+# Editor temporary files
+*.swp
+*.swo
+*~
+
+# Keep curated screenshots, reports, and logs in docs/validation tracked.
