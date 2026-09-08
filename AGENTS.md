@@ -41,7 +41,3 @@ Cover changed behavior with graph/ABI checks or deterministic GPU scenarios. For
 Use Conventional Commit types with concise Chinese subjects, such as `refactor(renderer): 拆分资源管理模块`. Preserve unrelated working-tree changes.
 
 PRs should explain the problem, resulting behavior, validation commands, and limitations. Link relevant issues and include before/after images for visual changes. Keep build products and large `.gputrace` bundles outside the repository. Preserve data attribution in `Resources/NOTICE.md`.
-
-## Agent Instructions
-
-Respond to users in Chinese. Keep changes focused.
