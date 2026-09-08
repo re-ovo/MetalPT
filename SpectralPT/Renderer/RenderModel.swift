@@ -1,6 +1,7 @@
 import Observation
 
 @Observable final class RenderModel {
+    let importer = ModelImportController()
     var scene: DemoScene = .cornell
     var paused = false
     var exposure: Float = 0

@@ -1,6 +1,6 @@
 import simd
 
-struct SceneMaterial {
+nonisolated struct SceneMaterial {
     enum Surface {
         case diffuse(reflectance: SIMD3<Float>)
         case gold(roughness: Float)

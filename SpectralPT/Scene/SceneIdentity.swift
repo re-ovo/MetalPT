@@ -1,19 +1,19 @@
 import Foundation
 
-struct SceneID<Tag>: Hashable {
+nonisolated struct SceneID<Tag>: Hashable {
     private let value = UUID()
 }
-enum MeshTag {}
-enum MaterialTag {}
-enum NodeTag {}
+nonisolated enum MeshTag {}
+nonisolated enum MaterialTag {}
+nonisolated enum NodeTag {}
 typealias MeshID = SceneID<MeshTag>
 typealias MaterialID = SceneID<MaterialTag>
 typealias NodeID = SceneID<NodeTag>
 
-enum ImageTag {}
+nonisolated enum ImageTag {}
 typealias ImageID = SceneID<ImageTag>
 
-enum TextureTag {}
-enum SamplerTag {}
+nonisolated enum TextureTag {}
+nonisolated enum SamplerTag {}
 typealias TextureID = SceneID<TextureTag>
 typealias SamplerID = SceneID<SamplerTag>

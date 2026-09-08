@@ -23,69 +23,91 @@ struct ContentView: View {
                 }
             }.frame(minWidth: 500, minHeight: 400)
             Divider()
-            VStack(alignment: .leading, spacing: 22) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("SPECTRAL").font(.system(size: 24, weight: .light, design: .rounded)).tracking(4)
-                    Text("METAL 4 · PATH TRACING").font(
-                        .system(size: 9, weight: .medium, design: .monospaced)
-                    ).tracking(1.3).foregroundStyle(.secondary)
-                }
-                Picker("场景", selection: $model.scene) {
-                    ForEach(DemoScene.allCases) {
-                        Text($0.title).tag($0)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("SPECTRAL").font(.system(size: 24, weight: .light, design: .rounded)).tracking(4)
+                        Text("METAL 4 · PATH TRACING").font(
+                            .system(size: 9, weight: .medium, design: .monospaced)
+                        ).tracking(1.3).foregroundStyle(.secondary)
                     }
-                }.labelsHidden()
-                HStack {
-                    Button {
-                        model.paused.toggle()
-                    } label: {
-                        Label(
-                            model.paused ? "继续" : "暂停", systemImage: model.paused ? "play.fill" : "pause.fill"
-                        )
+                    Picker("场景", selection: $model.scene) {
+                        ForEach(DemoScene.allCases) {
+                            Text($0.title).tag($0)
+                        }
+                    }.labelsHidden()
+                        .onChange(of: model.scene) { model.importer.showDemo() }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Button("打开模型…", systemImage: "folder") { model.importer.open() }
+                        Button("打开模型文件夹…") { model.importer.openFolder() }
+                            .help("为带外部纹理和 bin 的 glTF 授予文件夹访问权限")
+                        if model.importer.isLoading { ProgressView("正在加载模型…") }
+                        if let filename = model.importer.filename {
+                            Text(filename).font(.caption).lineLimit(2)
+                            Button("返回内置场景") { model.importer.showDemo() }
+                        }
+                        Text(model.importer.notice).font(.caption2).foregroundStyle(.secondary)
+                        if let error = model.importer.error {
+                            Text(error).font(.caption).foregroundStyle(.orange).textSelection(.enabled)
+                        }
                     }
-                    Button {
-                        model.resetToken += 1
-                    } label: {
-                        Image(systemName: "arrow.counterclockwise")
-                    }.help("重置累积")
-                }.buttonStyle(.bordered)
-                VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Text("曝光")
-                        Spacer()
+                        Button {
+                            model.paused.toggle()
+                        } label: {
+                            Label(
+                                model.paused ? "继续" : "暂停",
+                                systemImage: model.paused ? "play.fill" : "pause.fill"
+                            )
+                        }
+                        Button {
+                            model.resetToken += 1
+                        } label: {
+                            Image(systemName: "arrow.counterclockwise")
+                        }.help("重置累积")
+                    }.buttonStyle(.bordered)
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text("曝光")
+                            Spacer()
 
-                        Text(String(format: "%+.1f EV", model.exposure)).monospacedDigit().foregroundStyle(
-                            .secondary)
+                            Text(String(format: "%+.1f EV", model.exposure)).monospacedDigit()
+                                .foregroundStyle(
+                                    .secondary)
+                        }
+                        Slider(value: $model.exposure, in: -4...4, step: 0.1)
                     }
-                    Slider(value: $model.exposure, in: -4...4, step: 0.1)
-                }
-                Picker("渲染比例", selection: $model.scale) {
-                    Text("25%").tag(Float(0.25))
-                    Text("50%").tag(Float(0.5))
-                    Text("100%").tag(Float(1))
-                }
-                Stepper("最大反弹  \(model.maxDepth)", value: $model.maxDepth, in: 1...16)
-                Toggle("玻璃色散", isOn: $model.dispersion).toggleStyle(.switch)
-                Divider()
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("360–830 nm").font(.system(.title3, design: .monospaced))
-                    LinearGradient(
-                        colors: [.purple, .blue, .cyan, .green, .yellow, .orange, .red], startPoint: .leading,
-                        endPoint: .trailing
-                    ).frame(height: 3).clipShape(Capsule())
-                    Text("每条路径 4 个波长\n色散事件保留主波长").font(.caption).foregroundStyle(.secondary).lineSpacing(4)
-                }
-                Spacer()
-                Button("重置相机") {
-                    model.resetCamera()
-                }
-                Text("拖动旋转 · Shift / 右键拖动平移\n滚轮缩放").font(.caption).foregroundStyle(.secondary).lineSpacing(4)
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(model.gpuName)
-                    Text("GPU queues · Bindless · HW RT")
-                    Text(model.diagnostics)
-                }.font(.system(size: 9, design: .monospaced)).foregroundStyle(.tertiary)
-            }.padding(24).frame(width: 275).background(Color(nsColor: .windowBackgroundColor))
+                    Picker("渲染比例", selection: $model.scale) {
+                        Text("25%").tag(Float(0.25))
+                        Text("50%").tag(Float(0.5))
+                        Text("100%").tag(Float(1))
+                    }
+                    Stepper("最大反弹  \(model.maxDepth)", value: $model.maxDepth, in: 1...16)
+                    Toggle("玻璃色散", isOn: $model.dispersion).toggleStyle(.switch)
+                    Divider()
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("360–830 nm").font(.system(.title3, design: .monospaced))
+                        LinearGradient(
+                            colors: [.purple, .blue, .cyan, .green, .yellow, .orange, .red],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ).frame(height: 3).clipShape(Capsule())
+                        Text("每条路径 4 个波长\n色散事件保留主波长").font(.caption).foregroundStyle(.secondary).lineSpacing(
+                            4)
+                    }
+                    Spacer()
+                    Button("重置相机") {
+                        model.resetCamera()
+                    }
+                    Text("拖动旋转 · Shift / 右键拖动平移\n滚轮缩放").font(.caption).foregroundStyle(.secondary)
+                        .lineSpacing(4)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(model.gpuName)
+                        Text("GPU queues · Bindless · HW RT")
+                        Text(model.diagnostics)
+                    }.font(.system(size: 9, design: .monospaced)).foregroundStyle(.tertiary)
+                }.padding(24)
+            }.frame(width: 275).background(Color(nsColor: .windowBackgroundColor))
         }.preferredColorScheme(.dark)
     }
 }

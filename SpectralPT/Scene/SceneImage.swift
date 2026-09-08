@@ -2,7 +2,7 @@ import Foundation
 import ImageIO
 import CoreGraphics
 
-struct SceneImage {
+nonisolated struct SceneImage {
     var id = ImageID()
     let width: Int
     let height: Int

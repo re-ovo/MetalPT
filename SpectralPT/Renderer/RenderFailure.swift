@@ -1,6 +1,6 @@
 import Foundation
 
-struct RenderFailure: LocalizedError {
+nonisolated struct RenderFailure: LocalizedError {
     let message: String
     init(_ message: String) {
         self.message = message

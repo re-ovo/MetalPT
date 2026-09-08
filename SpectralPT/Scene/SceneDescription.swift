@@ -1,14 +1,14 @@
 import Foundation
 import simd
 
-struct SceneInstance {
+nonisolated struct SceneInstance {
     var mesh: Int
     var transform = matrix_identity_float4x4
     /// Mesh-local slot -> scene material index. GPU snapshots resolve this table per instance.
     var materials: [Int] = []
 }
 
-struct SceneLight {
+nonisolated struct SceneLight {
     /// Rectangle in the attached instance's local coordinates. Only this emitter is sampled by NEE.
     var instance: Int
     var material: Int
@@ -17,7 +17,7 @@ struct SceneLight {
     var v: SIMD3<Float>
 }
 
-struct SceneDescription {
+nonisolated struct SceneDescription {
     var meshes: [SceneMesh] = []
     var instances: [SceneInstance] = []
     var materials: [SceneMaterial] = []
@@ -82,7 +82,9 @@ struct SceneDescription {
                 i.materials.count == meshes[i.mesh].materialSlotCount,
                 i.materials.allSatisfy({ materials.indices.contains($0) }),
                 t.columns.0.w == 0, t.columns.1.w == 0, t.columns.2.w == 0, t.columns.3.w == 1,
-                abs(simd_determinant(t)) > 1e-8,
+                simd_determinant(t).isFinite, simd_determinant(t) != 0,
+                [t.inverse.columns.0, t.inverse.columns.1, t.inverse.columns.2, t.inverse.columns.3]
+                    .allSatisfy({ v in v.x.isFinite && v.y.isFinite && v.z.isFinite && v.w.isFinite }),
                 [t.columns.0, t.columns.1, t.columns.2, t.columns.3].allSatisfy({
                     $0.x.isFinite && $0.y.isFinite && $0.z.isFinite && $0.w.isFinite
                 })

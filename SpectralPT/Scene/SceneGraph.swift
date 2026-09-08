@@ -2,7 +2,7 @@ import Foundation
 import simd
 
 /// Authoring hierarchy. Array indices exist only in the compiled render snapshot.
-struct SceneGraph {
+nonisolated struct SceneGraph {
     struct Emitter {
         var materialSlot: Int
         var origin, u, v: SIMD3<Float>

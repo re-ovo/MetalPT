@@ -1,6 +1,6 @@
 import simd
 
-struct SceneMesh {
+nonisolated struct SceneMesh {
     struct Vertex: Equatable {
         var position, normal, uv: SIMD4<Float>
         var tangent: SIMD4<Float> = [1, 0, 0, 1]
@@ -114,7 +114,7 @@ struct SceneMesh {
     }
 }
 
-extension SIMD4 where Scalar == Float {
+nonisolated extension SIMD4 where Scalar == Float {
     var xyz: SIMD3<Float> {
         SIMD3(x, y, z)
     }

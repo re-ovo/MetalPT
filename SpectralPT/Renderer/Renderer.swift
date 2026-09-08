@@ -36,6 +36,18 @@ final class Renderer: NSObject, MTKViewDelegate {
         }
         model.gpuName = context.device.name
     }
+    /// Allocate the replacement before mutating state; failed imports keep the current snapshot.
+    func installImportedScene(_ description: SceneDescription) throws {
+        let replacement = try BindlessScene(context, description: description)
+        sceneGraph = nil
+        sceneOverride = description
+        scene = replacement
+        sceneKind = model.scene
+        sceneBuilt = false
+        model.resetCamera()
+        model.paused = false
+    }
+
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
     }
     func draw(in view: MTKView) {

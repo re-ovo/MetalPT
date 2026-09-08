@@ -25,6 +25,13 @@ enum ValidationRunner {
             let outputWidth = max(16, Int(env["SPECTRAL_WIDTH"] ?? "640") ?? 640)
             let outputHeight = max(16, Int(env["SPECTRAL_HEIGHT"] ?? "480") ?? 480)
             let output = try texture(outputWidth, outputHeight)
+            if let path = env["SPECTRAL_GLTF"] {
+                try await GLTFValidation.run(
+                    renderer, url: URL(fileURLWithPath: path), output: output,
+                    samples: samples, folder: folder)
+                NSApplication.shared.terminate(nil)
+                return
+            }
             var prismMesh = SceneMesh()
             prismMesh.prism()
             let center: SIMD3<Float> = [0.65 / 3, 0.89, 0]

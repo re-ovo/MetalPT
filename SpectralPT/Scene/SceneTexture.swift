@@ -2,7 +2,7 @@ import Foundation
 import simd
 
 /// One image can be sampled as sRGB color or linear data without duplicating the CPU asset.
-struct SceneTexture {
+nonisolated struct SceneTexture {
     enum Source: Equatable { case white, checker, stripes, image(ImageID) }
     var id = TextureID()
     var source: Source
@@ -11,7 +11,7 @@ struct SceneTexture {
     static let stripes = SceneTexture(source: .stripes)
 }
 
-struct SceneSampler: Equatable {
+nonisolated struct SceneSampler: Equatable {
     var id = SamplerID()
     enum Filter: UInt32 { case nearest, linear }
     enum MipFilter: UInt32 { case none, nearest, linear }
@@ -24,7 +24,7 @@ struct SceneSampler: Equatable {
     static let nearest = SceneSampler(minFilter: .nearest, magFilter: .nearest, mipFilter: .none)
 }
 
-struct TextureBinding {
+nonisolated struct TextureBinding {
     var texture: TextureID
     var sampler: SamplerID?
     var texCoord: Int = 0

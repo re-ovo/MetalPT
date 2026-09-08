@@ -1,0 +1,42 @@
+{
+  "model": "Rikimaru_Street.glb",
+  "regression": "Metal Capture: command buffer residency set limit of 32 exceeded",
+  "before": "Reproduced with MTL_CAPTURE_ENABLED=1 and MTL_DEBUG_LAYER=1",
+  "capture": {
+    "blasBuildPasses": 1,
+    "depth": 8,
+    "device": "Apple M4",
+    "failedImportPreservedScene": true,
+    "gpuMsMedian": 3.4009164664894342,
+    "image": {
+      "litFraction": 0.03704427083333333,
+      "meanRGB": 0.02877078227124183
+    },
+    "instanceCount": 3620,
+    "meshCount": 822,
+    "nonFinite": 0,
+    "queueOverflow": 0,
+    "resolution": "320 \u00d7 240",
+    "spp": 32,
+    "staleRequestDiscarded": true
+  },
+  "shaderValidation": {
+    "blasBuildPasses": 1,
+    "depth": 8,
+    "device": "Apple M4",
+    "failedImportPreservedScene": true,
+    "gpuMsMedian": 5.676041590049863,
+    "image": {
+      "litFraction": 0.03565104166666667,
+      "meanRGB": 0.024964869281045753
+    },
+    "instanceCount": 3620,
+    "meshCount": 822,
+    "nonFinite": 0,
+    "queueOverflow": 0,
+    "resolution": "320 \u00d7 240",
+    "spp": 4,
+    "staleRequestDiscarded": true
+  },
+  "note": "GPU timings are validation measurements under concurrent workloads, not performance benchmarks."
+}

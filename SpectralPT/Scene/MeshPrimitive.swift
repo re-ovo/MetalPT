@@ -1,12 +1,12 @@
 import simd
 
-struct MeshPrimitive: Equatable {
+nonisolated struct MeshPrimitive: Equatable {
     /// Range into the flattened triangle index stream (three indices per triangle).
     let indexRange: Range<Int>
     let materialSlot: UInt32
 }
 
-extension SceneMesh {
+nonisolated extension SceneMesh {
     /// Contiguous slot runs remain coherent even when CPU triangles are edited directly.
     var primitives: [MeshPrimitive] {
         var result: [MeshPrimitive] = []
