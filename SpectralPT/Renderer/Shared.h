@@ -39,10 +39,11 @@ typedef struct {
 
 // kind: diffuse, gold, dielectric, absorbing, metallic-roughness.
 typedef struct {
+    // coverage: alpha cutoff, transmission factor, reserved, reserved.
     PTFloat4 color, emission, optics, coverage;
     PTUInt4 flags; // kind, alpha mode, double sided, reserved
     PTTextureBinding baseColorTexture, metallicRoughnessTexture, normalTexture, emissiveTexture,
-        occlusionTexture;
+        occlusionTexture, transmissionTexture;
 } PTMaterial;
 
 typedef struct {
@@ -123,7 +124,7 @@ _Static_assert(sizeof(PTTextureBinding) == 48, "texture binding ABI");
 _Static_assert(sizeof(PTHit) == 112, "hit ABI");
 _Static_assert(sizeof(PTSampler) == 8, "sampler ABI");
 _Static_assert(sizeof(PTVertex) == 96, "vertex ABI");
-_Static_assert(sizeof(PTMaterial) == 320, "material ABI");
+_Static_assert(sizeof(PTMaterial) == 368, "material ABI");
 _Static_assert(sizeof(PTPath) == 112, "path ABI");
 _Static_assert(sizeof(PTFrame) == 112, "frame ABI");
 _Static_assert(sizeof(PTScene) == 96, "scene ABI");

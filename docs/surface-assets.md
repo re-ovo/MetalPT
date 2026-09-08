@@ -44,7 +44,7 @@ OPAQUE 忽略 alpha；MASK 使用 alphaCutoff；BLEND 将 alpha 解释为随机�
 
 - RGB→光谱仍使用原创有界解析基底；这是近似重建，不保证与 RGB glTF 查看器逐色匹配，也不是测量光谱。
 - mip 已生成并可按绑定 lod 访问，尚无 ray cone/射线微分自动选择 LOD；不存在屏幕导数时默认 LOD 0。
-- BLEND 是覆盖混合，不代表体积透射或折射；尚未加入 glTF transmission/volume 扩展。
+- BLEND 是覆盖混合，不代表体积透射或折射；glTF transmission 薄表面透射已支持，volume 尚未实现。
 - NEE 仍只登记完整矩形灯（OPAQUE、规范 UV0）；其他发光网格靠路径命中贡献。
 
 实现语义参考 [glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#materials) 和 Apple [Intersection Queries](https://developer.apple.com/documentation/metal/control-the-ray-tracing-process-using-intersection-queries)。实现代码和测试图案为本仓库编写，无新增第三方数据依赖。

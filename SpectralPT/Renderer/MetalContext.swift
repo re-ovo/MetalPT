@@ -31,7 +31,7 @@ final class MetalContext {
         for name in [
             "initialize", "prepareBounce", "intersectPaths", "shadePaths", "prepareShadow", "traceShadows",
             "finishBounce", "accumulate", "displayImage", "validateSpectral", "validateSurfaceAssets",
-            "validateCoverage",
+            "validateCoverage", "validateTransmission",
         ] {
             let f = MTL4LibraryFunctionDescriptor()
             f.library = l
@@ -41,7 +41,7 @@ final class MetalContext {
             p.computeFunctionDescriptor = f
             pipelines[name] = try compiler.makeComputePipelineState(descriptor: p, compilerTaskOptions: nil)
         }
-        precondition(MemoryLayout<PTVertex>.stride == 96 && MemoryLayout<PTMaterial>.stride == 320)
+        precondition(MemoryLayout<PTVertex>.stride == 96 && MemoryLayout<PTMaterial>.stride == 368)
         precondition(MemoryLayout<PTPath>.stride == 112 && MemoryLayout<PTFrame>.stride == 112)
         precondition(MemoryLayout<PTScene>.stride == 96 && MemoryLayout<PTWork>.stride == 64)
     }

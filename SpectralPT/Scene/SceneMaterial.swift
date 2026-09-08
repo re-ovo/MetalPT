@@ -19,6 +19,7 @@ nonisolated struct SceneMaterial {
     var emission = Emission()
     var doubleSided = false
     var alphaMode: AlphaMode = .opaque
+    var transmissionFactor: Float = 0
     var alphaCutoff: Float = 0.5
     var normalScale: Float = 1
     var occlusionStrength: Float = 1
@@ -27,6 +28,7 @@ nonisolated struct SceneMaterial {
     var normalTexture: TextureBinding?
     var emissiveTexture: TextureBinding?
     var occlusionTexture: TextureBinding?
+    var transmissionTexture: TextureBinding?
 
     var kind: Kind {
         switch surface {
@@ -55,8 +57,11 @@ nonisolated struct SceneMaterial {
         return 0
     }
     var bindings: [TextureBinding] {
-        [baseColorTexture, metallicRoughnessTexture, normalTexture, emissiveTexture, occlusionTexture]
-            .compactMap { $0 }
+        [
+            baseColorTexture, metallicRoughnessTexture, normalTexture, emissiveTexture, occlusionTexture,
+            transmissionTexture,
+        ]
+        .compactMap { $0 }
     }
     func gpu(textures: [TextureID: Int], samplers: [SamplerID: Int]) -> PTMaterial {
         func binding(_ value: TextureBinding?) -> PTTextureBinding {
@@ -65,13 +70,13 @@ nonisolated struct SceneMaterial {
         return PTMaterial(
             color: color, emission: SIMD4(emission.color, emission.strength),
             optics: [roughness, metallic, normalScale, occlusionStrength],
-            coverage: [alphaCutoff, 0, 0, 0],
+            coverage: [alphaCutoff, transmissionFactor, 0, 0],
             flags: [kind.rawValue, alphaMode.rawValue, doubleSided ? 1 : 0, 0],
             baseColorTexture: binding(baseColorTexture),
             metallicRoughnessTexture: binding(metallicRoughnessTexture),
             normalTexture: binding(normalTexture),
             emissiveTexture: binding(emissiveTexture),
-            occlusionTexture: binding(occlusionTexture))
+            occlusionTexture: binding(occlusionTexture), transmissionTexture: binding(transmissionTexture))
     }
     func validate(samplers: Set<SamplerID>) throws {
         guard
@@ -82,7 +87,7 @@ nonisolated struct SceneMaterial {
             emission.color.min() >= 0, emission.color.max().isFinite,
             emission.strength.isFinite, emission.strength >= 0,
             normalScale.isFinite, normalScale >= 0, (0...1).contains(occlusionStrength),
-            (0...1).contains(alphaCutoff)
+            (0...1).contains(alphaCutoff), (0...1).contains(transmissionFactor)
         else { throw RenderFailure("材质参数无效") }
         for binding in bindings { try binding.validate(samplers: samplers) }
     }

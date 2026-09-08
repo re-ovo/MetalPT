@@ -47,7 +47,12 @@ nonisolated struct GLTFDocument: Decodable {
         }
         struct Extensions: Decodable {
             struct Strength: Decodable { let emissiveStrength: Float }
+            struct Transmission: Decodable {
+                let transmissionFactor: Float?
+                let transmissionTexture: TextureInfo?
+            }
             let KHR_materials_emissive_strength: Strength?
+            let KHR_materials_transmission: Transmission?
         }
         let pbrMetallicRoughness: PBR?; let normalTexture: TextureInfo?; let occlusionTexture: TextureInfo?
         let emissiveTexture: TextureInfo?; let emissiveFactor: [Float]?

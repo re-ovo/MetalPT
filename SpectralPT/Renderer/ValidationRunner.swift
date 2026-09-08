@@ -25,6 +25,11 @@ enum ValidationRunner {
             let outputWidth = max(16, Int(env["SPECTRAL_WIDTH"] ?? "640") ?? 640)
             let outputHeight = max(16, Int(env["SPECTRAL_HEIGHT"] ?? "480") ?? 480)
             let output = try texture(outputWidth, outputHeight)
+            if env["SPECTRAL_TRANSMISSION_VALIDATE"] != nil {
+                try await TransmissionValidation.run(renderer, output: output, folder: folder)
+                NSApplication.shared.terminate(nil)
+                return
+            }
             if let path = env["SPECTRAL_GLTF"] {
                 try await GLTFValidation.run(
                     renderer, url: URL(fileURLWithPath: path), output: output,

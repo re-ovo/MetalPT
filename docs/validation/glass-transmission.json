@@ -1,0 +1,18 @@
+{
+  "blasBuildPasses" : 1,
+  "depth" : 8,
+  "device" : "Apple M4",
+  "failedImportPreservedScene" : true,
+  "gpuMsMedian" : 3.6555416882038116,
+  "image" : {
+    "litFraction" : 0.021497395833333332,
+    "meanRGB" : 0.012267956835511983
+  },
+  "instanceCount" : 4,
+  "meshCount" : 4,
+  "nonFinite" : 0,
+  "queueOverflow" : 0,
+  "resolution" : "320 × 240",
+  "spp" : 64,
+  "staleRequestDiscarded" : true
+}

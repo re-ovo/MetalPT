@@ -59,7 +59,7 @@ import UniformTypeIdentifiers
                 var notice = "自动取景 · 查看灯光"
                 if !(container.document.animations ?? []).isEmpty { notice += " · 动画使用静态姿态" }
                 let ignored = Set(container.document.extensionsUsed ?? []).subtracting([
-                    "KHR_texture_transform", "KHR_materials_emissive_strength",
+                    "KHR_texture_transform", "KHR_materials_emissive_strength", "KHR_materials_transmission",
                 ])
                 if !ignored.isEmpty { notice += "\n忽略可选扩展：" + ignored.sorted().joined(separator: ", ") }
                 return (description, notice)

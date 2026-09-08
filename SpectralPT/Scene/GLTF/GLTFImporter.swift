@@ -7,7 +7,9 @@ nonisolated struct GLTFImporter {
     var document: GLTFDocument { container.document }
 
     func load() throws -> SceneDescription {
-        let supported: Set<String> = ["KHR_texture_transform", "KHR_materials_emissive_strength"]
+        let supported: Set<String> = [
+            "KHR_texture_transform", "KHR_materials_emissive_strength", "KHR_materials_transmission",
+        ]
         let missing = Set(document.extensionsRequired ?? []).subtracting(supported)
         guard missing.isEmpty else {
             throw RenderFailure("不支持必需扩展：\(missing.sorted().joined(separator: ", "))")
@@ -84,6 +86,10 @@ nonisolated struct GLTFImporter {
             case "BLEND": result.alphaMode = .blend
             default: throw RenderFailure("无效 alphaMode")
             }
+            result.transmissionFactor =
+                material.extensions?.KHR_materials_transmission?.transmissionFactor ?? 0
+            result.transmissionTexture = try binding(
+                material.extensions?.KHR_materials_transmission?.transmissionTexture)
             result.alphaCutoff = material.alphaCutoff ?? 0.5
             result.normalScale = material.normalTexture?.scale ?? 1
             result.occlusionStrength = material.occlusionTexture?.strength ?? 1

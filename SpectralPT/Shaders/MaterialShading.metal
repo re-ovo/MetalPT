@@ -49,12 +49,12 @@ kernel void shadePaths(constant PTScene &s [[buffer(0)]],
             cosLight = abs(cosLight);
         float3 wi = delta / dist;
         float cosSurface = dot(n, wi);
-        if (cosLight > 0 && cosSurface > 0 && dot(geometric, wi) > 0) {
+        if (cosLight > 0 && cosSurface * dot(geometric, wi) > 0) {
             float bsdfPDF;
             float4 bsdf = evaluateBSDF(m, material, p.wavelengths, n, wo, wi, s, bsdfPDF);
             float lightPDF = dist * dist / (light.normalArea.w * cosLight * float(s.counts.w));
             float4 contribution = p.throughput * bsdf * emissionSpectrum(emission, p.wavelengths) *
-                                  cosSurface * powerMIS(lightPDF, bsdfPDF) / lightPDF;
+                                  abs(cosSurface) * powerMIS(lightPDF, bsdfPDF) / lightPDF;
             uint slot = atomic_fetch_add_explicit(w.counts + 2, 1, memory_order_relaxed);
             if (slot < f.size.x * f.size.y) {
                 PTShadow sh;
@@ -91,12 +91,13 @@ kernel void shadePaths(constant PTScene &s [[buffer(0)]],
         }
         p.state.w = 1;
     } else {
-        wi = sampleBSDF(m, material, n, wo, rng);
-        float4 bsdf = evaluateBSDF(m, material, p.wavelengths, n, wo, wi, s, pdf);
-        if (pdf <= 0 || dot(wi, n) <= 0 || dot(wi, geometric) <= 0)
+        BSDFSample sampled = sampleSurfaceBSDF(m, material, p.wavelengths, n, wo, s, rng);
+        wi = sampled.direction;
+        pdf = sampled.pdf;
+        if (pdf <= 0 || dot(wi, n) * dot(wi, geometric) <= 0)
             return;
-        p.throughput *= bsdf * abs(dot(n, wi)) / pdf;
-        p.state.w = 0;
+        p.throughput *= sampled.weight;
+        p.state.w = sampled.delta ? 1 : 0;
     }
     if (!all(isfinite(p.throughput)) || !all(isfinite(wi))) {
         atomic_fetch_add_explicit(w.counts + 4, 1, memory_order_relaxed);

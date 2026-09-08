@@ -22,7 +22,7 @@ inline float4 sampleTexture(constant PTScene &scene, PTTextureBinding binding, f
 struct MaterialSample {
     float4 baseColor;
     float3 emission;
-    float metallic, roughness, occlusion;
+    float metallic, roughness, occlusion, transmission;
 };
 
 inline MaterialSample sampleMaterial(constant PTScene &scene, PTMaterial m, float4 uv, float4 color) {
@@ -31,6 +31,8 @@ inline MaterialSample sampleMaterial(constant PTScene &scene, PTMaterial m, floa
     float4 mr = sampleTexture(scene, m.metallicRoughnessTexture, uv, false);
     result.metallic = clamp(m.optics.y * mr.b, 0.0f, 1.0f);
     result.roughness = clamp(m.optics.x * mr.g, 0.0f, 1.0f);
+    result.transmission =
+        clamp(m.coverage.y * sampleTexture(scene, m.transmissionTexture, uv, false).r, 0.0f, 1.0f);
     result.emission = m.emission.xyz * m.emission.w * sampleTexture(scene, m.emissiveTexture, uv, true).xyz;
     // AO is a baked approximation for indirect lighting, not a second visibility term in this path tracer.
     result.occlusion = mix(1.0f, sampleTexture(scene, m.occlusionTexture, uv, false).r, m.optics.w);

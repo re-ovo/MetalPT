@@ -9,11 +9,23 @@ enum SurfaceAssetTests {
             do { try work(); preconditionFailure(message) } catch {}
         }
         precondition(
-            MemoryLayout<PTVertex>.stride == 96 && MemoryLayout<PTMaterial>.stride == 320,
+            MemoryLayout<PTVertex>.stride == 96 && MemoryLayout<PTMaterial>.stride == 368,
             "Vertex/material ABI")
         precondition(
             MemoryLayout<PTHit>.stride == 112 && MemoryLayout<PTTextureBinding>.stride == 48,
             "Hit/binding ABI")
+        precondition(
+            MemoryLayout<PTMaterial>.offset(of: \.transmissionTexture) == 320,
+            "Transmission binding ABI offset")
+        var invalidTransmission = SceneMaterial()
+        invalidTransmission.transmissionFactor = 1.1
+        rejects("Out-of-range transmission accepted") {
+            try invalidTransmission.validate(samplers: [])
+        }
+        invalidTransmission.transmissionFactor = .nan
+        rejects("NaN transmission accepted") {
+            try invalidTransmission.validate(samplers: [])
+        }
         let vertices = [SIMD3<Float>(-1, -1, 0), [1, -1, 0], [1, 1, 0], [-1, 1, 0]].map {
             SceneMesh.Vertex(position: SIMD4($0, 1), normal: [0, 0, 1, 0], uv: .zero)
         }

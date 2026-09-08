@@ -100,6 +100,26 @@ import simd
         textured["meshes"] = [
             ["primitives": [["attributes": ["POSITION": 0, "TEXCOORD_0": 2], "indices": 1, "material": 0]]]
         ]
+        var transmissionAsset = textured
+        transmissionAsset["extensionsRequired"] = ["KHR_materials_transmission"]
+        transmissionAsset["materials"] = [
+            [
+                "pbrMetallicRoughness": ["metallicFactor": 0, "roughnessFactor": 0],
+                "extensions": [
+                    "KHR_materials_transmission": [
+                        "transmissionFactor": 0.75, "transmissionTexture": ["index": 0],
+                    ]
+                ],
+            ]
+        ]
+        let transmitted = try load(transmissionAsset)
+        assert(transmitted.materials[0].transmissionFactor == 0.75, "transmission factor")
+        assert(
+            transmitted.materials[0].transmissionTexture?.texture == transmitted.textures[2].id,
+            "transmission texture")
+        transmissionAsset["materials"] = [["extensions": ["KHR_materials_transmission": [:]]]]
+        let defaults = try load(transmissionAsset)
+        assert(defaults.materials[0].transmissionFactor == 0, "transmission default")
         let texturedScene = try load(textured)
         assert(texturedScene.images.count == 1 && texturedScene.images[0].width == 2, "embedded PNG")
         assert(texturedScene.meshes[0].vertices[2].uv.x == Float(128.0 / 255), "normalized UV")
