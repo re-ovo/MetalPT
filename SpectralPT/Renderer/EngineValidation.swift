@@ -56,8 +56,10 @@ enum EngineValidation {
         var fixture = SceneDescription()
         fixture.textures = [.white, .checker, .stripes]
         fixture.materials = [
-            SceneMaterial(surface: .emitter(color: SIMD3(repeating: 0.73), strength: 2)),
-            SceneMaterial(surface: .emitter(color: SIMD3(repeating: 0.73), strength: 6), texture: 2),
+            SceneMaterial(surface: .absorbing, emission: .init(color: SIMD3(repeating: 0.73), strength: 2)),
+            SceneMaterial(
+                surface: .absorbing, emission: .init(color: SIMD3(repeating: 0.73), strength: 6),
+                emissiveTexture: .init(texture: SceneTexture.stripes.id)),
         ]
         var quad = SceneMesh()
         quad.quad([-0.6, -0.6, 0], [0.6, -0.6, 0], [0.6, 0.6, 0], [-0.6, 0.6, 0], 0)
@@ -162,11 +164,11 @@ enum EngineValidation {
         }
         try require(try await render(split) == multiPixels, "Material slots differ from separate instances")
         var fallback = fixture
-        fallback.materials[0].texture = 999
+        fallback.materials[0].emissiveTexture = .init(texture: TextureID())
         let fallbackPixels = try await render(fallback)
         try require(fallbackPixels == instanced, "Invalid texture did not use default white slot")
         var changed = fixture
-        changed.materials[1].texture = 0
+        changed.materials[1].emissiveTexture = .init(texture: SceneTexture.white.id)
         let whitePixels = try await render(changed)
         try require(
             difference(instanced, whitePixels) > 0.001, "Texture index beyond slot one was not sampled")

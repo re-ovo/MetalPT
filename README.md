@@ -35,6 +35,8 @@
 
 新增 pass 时在 `Renderer/Passes/` 定义访问声明与编码，在 `PathTracingPasses` 安排执行顺序，并维护对应着色器入口及 `MetalContext` 的 pipeline 注册。编码闭包只捕获所需资源，避免捕获 graph 而形成引用环。共享 MSL 函数放入带包含保护的头文件并声明为 `inline`；kernel 只在一个 `.metal` 编译单元定义。CPU/GPU 数据布局继续统一维护在 `Renderer/Shared.h`。
 
+图片/采样器、primitive、PBR 与透明覆盖的用法和当前限制见 [表面资产说明](docs/surface-assets.md)。
+
 以上路径均相对于 `SpectralPT/`。场景表支持多个网格、实例、纹理和灯光；资源登记、Pass 接口与图分配规则见 [架构说明](docs/architecture.md)。
 
 ## 实现
@@ -54,13 +56,13 @@
 
 - **GPU driven**：GPU 原子计数器压紧路径与阴影队列，GPU 写入间接线程组参数。每跳通过 indirect dispatch 工作，不回读路径数到 CPU 控制调度。CPU 编码固定最大反弹次数；空队列调度一组并立即退出。
 - **Bindless**：共享头文件定义的场景根表持有 buffer GPU 地址、纹理 resource ID 和 TLAS handle。MSL 动态索引三角形、材质及纹理，Metal 4 argument table 只绑定入口。所有间接引用由 residency set 覆盖。
-- **硬件光追**：程序化三角形 BLAS + TLAS 实例，MSL triangle/instancing intersector 求交。场景静态，相机操作不重建 AS。
+- **硬件光追**：程序化三角形 BLAS + TLAS 实例，MSL triangle/instancing intersection query 硬件求交，并在候选阶段处理双面和 alpha coverage。场景静态，相机操作不重建 AS。
 - **光谱**：360–830 nm 范围内相关分层采样 4 个波长。路径保存波长 PDF，初始为 1/470；XYZ 转换显式包含逆 PDF 与四样本平均。波长相关玻璃仅保留主波长，其 PDF 除以 4、次要波长 PDF 置零，以补偿其余通道的终止。
-- **材质**：有界光谱漫反射、GGX 金属（实测金 n/k）、BK7 Sellmeier 玻璃与理想介电质 Fresnel。包含全反射、辐亮度透射 η² 和用于俄罗斯轮盘的 η 补偿。
+- **材质**：有界光谱漫反射、通用 metallic-roughness、GGX 金属（实测金 n/k）、可叠加发光、BK7 Sellmeier 玻璃与理想介电质 Fresnel。包含全反射、辐亮度透射 η² 和用于俄罗斯轮盘的 η 补偿。
 - **积分**：天花板矩形灯 NEE、power heuristic MIS、光源命中权重、俄罗斯轮盘、尺度相关起点偏移。发光背景通过 BSDF 采样命中，不参与灯光 NEE，因而其命中权重为 1。
 - **显示**：FP32 XYZ 运行平均 → 线性 sRGB → 曝光与 ACES 风格曲线 → 一次 sRGB 编码，输出非 sRGB BGRA8 drawable。
 
-球体使用三角网格几何法线；玻璃为独立封闭边界，不支持嵌套介质或吸收。漫反射参数是光谱基底系数，尚未实现精确 RGB-to-spectrum。有限反弹深度会截断较长路径。
+非 delta 表面使用插值着色法线与法线贴图，玻璃仍使用几何法线作为独立封闭边界，不支持嵌套介质或吸收。漫反射参数是光谱基底系数，尚未实现精确 RGB-to-spectrum。有限反弹深度会截断较长路径。
 
 ## 验证
 

@@ -10,6 +10,7 @@ typedef uint4 PTUInt4;
 #define PT_PTR(T) device T *
 #define PT_TEX texture2d<float>
 #define PT_AS instance_acceleration_structure
+#define PT_SAMPLER sampler
 #else
 #include <simd/simd.h>
 #include <stdint.h>
@@ -18,21 +19,30 @@ typedef simd_uint4 PTUInt4;
 #define PT_PTR(T) uint64_t
 #define PT_TEX uint64_t
 #define PT_AS uint64_t
+#define PT_SAMPLER uint64_t
 #endif
 
 typedef struct {
-    PTFloat4 position, normal, uv;
+    PTFloat4 position, normal, uv, tangent, color;
+    PTUInt4 attributes;
 } PTVertex;
 
 typedef struct {
     PTUInt4 indices;
 } PTTriangle;
 
-// kind: 0 diffuse, 1 gold, 2 dielectric, 3 emitter. texture: 0 white, 1 pattern.
 typedef struct {
-    PTFloat4 color;
-    PTFloat4 optics;
-    PTUInt4 flags;
+    PTUInt4 indices;      // texture, sampler, UV set, enabled
+    PTFloat4 transform;   // offset.xy, scale.xy
+    PTFloat4 rotationLOD; // cos, sin, explicit LOD, reserved
+} PTTextureBinding;
+
+// kind: diffuse, gold, dielectric, absorbing, metallic-roughness.
+typedef struct {
+    PTFloat4 color, emission, optics, coverage;
+    PTUInt4 flags; // kind, alpha mode, double sided, reserved
+    PTTextureBinding baseColorTexture, metallicRoughnessTexture, normalTexture, emissiveTexture,
+        occlusionTexture;
 } PTMaterial;
 
 typedef struct {
@@ -41,7 +51,7 @@ typedef struct {
 } PTPath;
 
 typedef struct {
-    PTFloat4 position, normal, uv;
+    PTFloat4 position, normal, shadingNormal, uv, color, tangent;
     PTUInt4 info;
 } PTHit;
 
@@ -74,8 +84,12 @@ typedef struct {
 } PTLight;
 
 typedef struct {
-    PT_TEX value;
+    PT_TEX linear, color;
 } PTTexture;
+
+typedef struct {
+    PT_SAMPLER value;
+} PTSampler;
 
 typedef struct {
     PT_PTR(PTMesh) meshes;
@@ -86,6 +100,7 @@ typedef struct {
     PT_PTR(PTTexture) textures;
     PT_PTR(PTLight) lights;
     PT_AS acceleration;
+    PT_PTR(PTSampler) samplers;
     PTUInt4 counts; // meshes, instances, textures, lights
 } PTScene;
 
@@ -104,15 +119,18 @@ typedef struct {
     PT_PTR(unsigned int) indirect;
 } PTWork;
 #ifndef __METAL_VERSION__
-_Static_assert(sizeof(PTVertex) == 48, "vertex ABI");
-_Static_assert(sizeof(PTMaterial) == 48, "material ABI");
+_Static_assert(sizeof(PTTextureBinding) == 48, "texture binding ABI");
+_Static_assert(sizeof(PTHit) == 112, "hit ABI");
+_Static_assert(sizeof(PTSampler) == 8, "sampler ABI");
+_Static_assert(sizeof(PTVertex) == 96, "vertex ABI");
+_Static_assert(sizeof(PTMaterial) == 320, "material ABI");
 _Static_assert(sizeof(PTPath) == 112, "path ABI");
 _Static_assert(sizeof(PTFrame) == 112, "frame ABI");
-_Static_assert(sizeof(PTScene) == 80, "scene ABI");
+_Static_assert(sizeof(PTScene) == 96, "scene ABI");
 _Static_assert(sizeof(PTWork) == 64, "work ABI");
 _Static_assert(sizeof(PTMesh) == 16, "mesh ABI");
 _Static_assert(sizeof(PTInstance) == 96, "instance ABI");
 _Static_assert(sizeof(PTLight) == 80, "light ABI");
-_Static_assert(sizeof(PTTexture) == 8, "texture ABI");
+_Static_assert(sizeof(PTTexture) == 16, "texture ABI");
 #endif
 #endif

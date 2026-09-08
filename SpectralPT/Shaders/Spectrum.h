@@ -22,14 +22,24 @@ toXYZ(float4 value, float4 lambda, constant PTScene &scene, float4 wavelengthPDF
 }
 
 // Original, bounded analytic pigment basis, not an RGB colorimetric upsampling algorithm.
-inline float4 reflectance(float3 coefficients, float4 lambda) {
+inline float4 rgbSpectrum(float3 coefficients, float4 lambda) {
     float4 r = exp(-0.5f * pow((lambda - 610) / 45, 2.0f));
     float4 g = exp(-0.5f * pow((lambda - 545) / 38, 2.0f));
     float4 b = exp(-0.5f * pow((lambda - 450) / 30, 2.0f));
     float low = min(coefficients.x, min(coefficients.y, coefficients.z));
     return clamp(low + (coefficients.x - low) * r + (coefficients.y - low) * g + (coefficients.z - low) * b,
                  0.0f,
-                 0.98f);
+                 1.0f);
+}
+
+inline float4 reflectance(float3 coefficients, float4 lambda) {
+    return min(rgbSpectrum(coefficients, lambda), float4(0.98f));
+}
+
+// Nonnegative approximate RGB emission upsampling; no unique measured spectrum is implied.
+inline float4 emissionSpectrum(float3 rgb, float4 lambda) {
+    float scale = max(rgb.x, max(rgb.y, rgb.z));
+    return scale > 0 ? rgbSpectrum(rgb / scale, lambda) * scale : float4(0);
 }
 
 inline float bk7(float nm) {

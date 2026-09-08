@@ -18,6 +18,7 @@ final class BindlessScene {
         let build: Build
         let handles: [ResourceRegistry.Handle]
     }
+    let samplers: [MTLSamplerState]
     let meshUploads: [MeshUpload]
     let reusedAccelerationStructures: Set<ResourceRegistry.Handle>
     let resources: [ResourceRegistry.Entry]
@@ -157,47 +158,33 @@ final class BindlessScene {
         tlasHandle = registry.insert(tlas, name: "TLAS", kind: .accelerationStructure)
         scratchTLAS = try context.buffer(sizes.buildScratchBufferSize, "TLAS scratch")
         scratchHandle = registry.insert(scratchTLAS, name: "TLAS scratch")
-        var textureIDs: [UInt64] = []
-        var shading: [ResourceRegistry.Handle] = []
-        for (index, pattern) in description.textures.enumerated() {
-            let td = MTLTextureDescriptor.texture2DDescriptor(
-                pixelFormat: .r32Float, width: 128, height: 128, mipmapped: false)
-            td.storageMode = .shared
-            td.usage = .shaderRead
-            guard let texture = context.device.makeTexture(descriptor: td) else {
-                throw RenderFailure("纹理分配失败")
-            }
-            texture.label = "Scene texture \(index)"
-            let data: [Float] = (0..<(128 * 128)).map { p in
-                switch pattern {
-                case .white: return 1
-                case .checker: return (p % 128 / 8 + p / 128 / 32) % 2 == 0 ? 1 : 0.015
-                case .stripes: return p % 128 / 8 % 2 == 0 ? 1 : 0.015
-                }
-            }
-            data.withUnsafeBytes {
-                texture.replace(
-                    region: MTLRegionMake2D(0, 0, 128, 128), mipmapLevel: 0, withBytes: $0.baseAddress!,
-                    bytesPerRow: 128 * 4)
-            }
-            textureIDs.append(texture.gpuResourceID._impl)
-            shading.append(registry.insert(texture, name: texture.label!, kind: .texture))
-        }
+        let textureUpload = try SceneTextureUpload(context: context, scene: description, registry: registry)
+        samplers = textureUpload.samplers
+        var shading = textureUpload.handles
         let lights: [PTLight] = description.lights.map { light in
             let t = description.instances[light.instance].transform
             let o = t * SIMD4(light.origin, 1), u = t * SIMD4(light.u, 0), v = t * SIMD4(light.v, 0)
             let cross = simd_cross(u.xyz, v.xyz), area = simd_length(cross)
             return PTLight(
-                origin: o, u: u, v: v, normalArea: SIMD4(cross / area, area),
+                origin: o, u: u, v: v,
+                normalArea: SIMD4(cross / area * (simd_determinant(t) < 0 ? -1 : 1), area),
                 indices: [UInt32(light.material), UInt32(light.instance), 0, 0])
         }
         let spectra = try SpectralData()
         let (meshTable, mh) = try upload(meshes, "Mesh table")
         let (instanceTable, insth) = try upload(instances, "Instance table")
-        let (materials, math) = try upload(description.materials.map(\.gpu), "Material table")
+        let textureIndices = Dictionary(
+            uniqueKeysWithValues: description.textures.enumerated().map { ($1.id, $0) })
+        let samplerIndices = Dictionary(
+            uniqueKeysWithValues: description.samplers.enumerated().map { ($1.id, $0) })
+        let (materials, math) = try upload(
+            description.materials.map { $0.gpu(textures: textureIndices, samplers: samplerIndices) },
+            "Material table")
         let (cie, ch) = try upload(spectra.cie, "CIE table")
         let (gold, gh) = try upload(spectra.gold, "Gold table")
-        let (textures, th) = try upload(textureIDs, "Texture resource ID table")
+        let (textures, th) = try upload(textureUpload.textures, "Texture resource ID table")
+        let (samplerTable, sah) = try upload(
+            samplers.map { PTSampler(value: $0.gpuResourceID._impl) }, "Sampler ID table")
         let (lightTable, lh) = try upload(lights, "Light table")
         var scene = PTScene()
         scene.meshes = meshTable.gpuAddress
@@ -206,16 +193,19 @@ final class BindlessScene {
         scene.cie = cie.gpuAddress
         scene.gold = gold.gpuAddress
         scene.textures = textures.gpuAddress
+        scene.samplers = samplerTable.gpuAddress
         scene.lights = lightTable.gpuAddress
         scene.acceleration = tlas.gpuResourceID._impl
         scene.counts = [
-            UInt32(meshes.count), UInt32(instances.count), UInt32(textureIDs.count), UInt32(lights.count),
+            UInt32(meshes.count), UInt32(instances.count), UInt32(textureUpload.textures.count),
+            UInt32(lights.count),
         ]
         let (root, rootHandle) = try upload([scene], "Bindless scene root")
         self.root = root
         self.rootHandle = rootHandle
-        intersectionResources = intersection + [mh, insth, rootHandle]
-        shadingResources = shading + [math, ch, gh, th, lh, rootHandle]
+        shading += [math, ch, gh, th, sah, lh, rootHandle]
+        intersectionResources = intersection + [mh, insth] + shading
+        shadingResources = shading
         resources = registry.snapshot()
     }
 }

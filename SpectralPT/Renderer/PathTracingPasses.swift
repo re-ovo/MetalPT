@@ -50,7 +50,7 @@ enum PathTracingPasses {
                     resources: .init(
                         shadows: h.shadows, counts: h.counts,
                         indirect: h.indirect, sample: h.sample,
-                        scene: SceneBindings(root: root, dependencies: traversal, acceleration: top)),
+                        scene: geometry),
                     bounce: bounce)
                 QueueManagementPasses.finishBounce(
                     to: graph, compute: compute, resources: queues, bounce: bounce)

@@ -1,0 +1,160 @@
+{
+  "blackScenePassed" : true,
+  "cornell" : {
+    "litFraction" : 0.98203125000000002,
+    "meanRGB" : 0.37969720179738564
+  },
+  "cornellGPUms" : 10.076374979689717,
+  "cornellGPUmsStatistic" : "median, excluding first 4 frames",
+  "device" : "Apple M4",
+  "dispersionMeanAbsoluteDifference" : 0.018343979779411764,
+  "engineChecks" : {
+    "emitterContracts" : true,
+    "emptyScene" : true,
+    "graphCacheHits" : 121,
+    "incrementalBLAS" : true,
+    "instancedVsBakedDifference" : 0,
+    "lightCount" : 2,
+    "materialSlots" : true,
+    "passBindingContracts" : true,
+    "passed" : true,
+    "sceneHierarchy" : true,
+    "sharedMeshInstances" : 2,
+    "textureSlots" : 3
+  },
+  "frameResources" : {
+    "cachedBytes" : 62147072,
+    "graphCacheHits" : 102,
+    "graphCacheMisses" : 7,
+    "instanceCount" : 5,
+    "liveResources" : 44,
+    "meshCount" : 5,
+    "reusedBLASCount" : 0
+  },
+  "output" : "640x480",
+  "passed" : true,
+  "prism" : {
+    "litFraction" : 0.98829427083333332,
+    "meanRGB" : 0.51839460784313729
+  },
+  "prismGPUms" : 6.5162498503923416,
+  "prismGPUmsStatistic" : "median, excluding first 4 frames",
+  "prismNoDispersion" : {
+    "litFraction" : 0.98838541666666668,
+    "meanRGB" : 0.52806004901960779
+  },
+  "render" : "320x240",
+  "spectralChecks" : [
+    [
+      1.0000792741775513,
+      0.99999994039535522,
+      1.0003279447555542,
+      1
+    ],
+    [
+      1.5308486223220825,
+      1.5130640268325806,
+      1,
+      0.040000002831220627
+    ],
+    [
+      1.0000792741775513,
+      1.0000016689300537,
+      1.0003283023834229,
+      0
+    ],
+    [
+      1.0000749826431274,
+      0.99999678134918213,
+      1.0003247261047363,
+      0
+    ],
+    [
+      0.73000001907348633,
+      0.73000001907348633,
+      0.73000001907348633,
+      0.73000001907348633
+    ],
+    [
+      0.40713804960250854,
+      0.47478362917900085,
+      0.90962344408035278,
+      0.97053295373916626
+    ],
+    [
+      1.0000003576278687,
+      0,
+      0,
+      0
+    ]
+  ],
+  "spp" : 32,
+  "surfaceAssets" : {
+    "coverage" : [
+      [
+        1,
+        0,
+        0.25,
+        0.5
+      ],
+      [
+        0,
+        1,
+        0,
+        0
+      ],
+      [
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        0.74560546875,
+        0,
+        0,
+        0
+      ]
+    ],
+    "gallerySPP" : 32,
+    "normalFrames" : true,
+    "passed" : true,
+    "samplers" : true,
+    "sampleVsPDF" : [
+      [
+        0.96990966796875,
+        0.9705890417098999
+      ],
+      [
+        0.95404052734375,
+        0.95588201284408569
+      ],
+      [
+        0.93865966796875,
+        0.94117671251296997
+      ]
+    ],
+    "stableTextureBindings" : true,
+    "textureViews" : true,
+    "whiteFurnace" : [
+      [
+        0.80202144384384155,
+        0.80202144384384155,
+        0.80202144384384155,
+        0.80202144384384155
+      ],
+      [
+        0.61542057991027832,
+        0.61542057991027832,
+        0.61542057991027832,
+        0.61542057991027832
+      ],
+      [
+        0.7303805947303772,
+        0.7303805947303772,
+        0.7303805947303772,
+        0.7303805947303772
+      ]
+    ]
+  }
+}

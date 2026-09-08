@@ -20,6 +20,8 @@ struct SceneGraph {
 
     var meshes: [SceneMesh] = []
     var materials: [SceneMaterial] = []
+    var images: [SceneImage] = []
+    var samplers: [SceneSampler] = [.nearest]
     var textures: [SceneTexture] = [.white, .checker]
     private(set) var nodes: [NodeID: Node] = [:]
     private var order: [NodeID] = []
@@ -33,6 +35,8 @@ struct SceneGraph {
         meshes = description.meshes
         materials = description.materials
         textures = description.textures
+        images = description.images
+        samplers = description.samplers
         for (index, instance) in description.instances.enumerated() {
             var node = Node(
                 name: "Instance \(index)", mesh: meshes[instance.mesh].id,
@@ -124,6 +128,8 @@ struct SceneGraph {
         result.meshes = meshes
         result.materials = materials
         result.textures = textures
+        result.images = images
+        result.samplers = samplers
         transformedNodeCount = 0
         for id in order {
             let node = nodes[id]!

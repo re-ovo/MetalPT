@@ -13,25 +13,28 @@ kernel void shadePaths(constant PTScene &s [[buffer(0)]],
         return;
     uint rng = p.state.y;
     PTMaterial m = s.materials[hit.info.x];
-    float3 ng = hit.normal.xyz, n = hit.info.z ? ng : -ng, wo = -p.direction.xyz;
-    constexpr sampler texSampler(coord::normalized, address::repeat, filter::nearest);
-    float tex = s.textures[m.flags.y < s.counts.z ? m.flags.y : 0].value.sample(texSampler, hit.uv.xy).r;
-    if (m.flags.x == 3) {
-        if (hit.info.z && f.display.w != 1) {
-            float weight = 1;
-            if (hit.info.y != 0xffffffffu && !p.state.w) {
-                PTLight light = s.lights[hit.info.y];
-                float lightPDF = hit.position.w * hit.position.w /
-                                 max(light.normalArea.w * dot(ng, wo) * float(s.counts.w), 1e-7f);
-                weight = powerMIS(p.sampling.x, lightPDF);
-            }
-            addContribution(
-                w,
-                p.state.x,
-                toXYZ(p.throughput * m.optics.x * tex * weight, p.wavelengths, s, p.wavelengthPDF));
+    MaterialSample material = sampleMaterial(s, m, hit.uv, hit.color);
+    float3 ng = hit.normal.xyz, geometric = hit.info.z ? ng : -ng, wo = -p.direction.xyz;
+    float3 n = hit.info.z ? hit.shadingNormal.xyz : -hit.shadingNormal.xyz;
+    if (dot(n, wo) <= 1e-5f || m.flags.x == 2)
+        n = geometric;
+    if ((hit.info.z || m.flags.z) && f.display.w != 1 && any(material.emission > 0)) {
+        float weight = 1;
+        if (hit.info.y != 0xffffffffu && !p.state.w) {
+            PTLight light = s.lights[hit.info.y];
+            float lightPDF = hit.position.w * hit.position.w /
+                             max(light.normalArea.w * abs(dot(ng, wo)) * float(s.counts.w), 1e-7f);
+            weight = powerMIS(p.sampling.x, lightPDF);
         }
-        return;
+        addContribution(w,
+                        p.state.x,
+                        toXYZ(p.throughput * emissionSpectrum(material.emission, p.wavelengths) * weight,
+                              p.wavelengths,
+                              s,
+                              p.wavelengthPDF));
     }
+    if (m.flags.x == 3)
+        return;
     // Next event estimation only for non-delta BSDFs, sampling the ceiling rectangle.
     if (m.flags.x != 2 && s.counts.w > 0 && f.display.w != 1) {
         uint lightIndex = s.counts.w == 1 ? 0 : min(uint(random(rng) * s.counts.w), s.counts.w - 1);
@@ -39,19 +42,19 @@ kernel void shadePaths(constant PTScene &s [[buffer(0)]],
         PTMaterial emitter = s.materials[light.indices.x];
         float2 lightUV = float2(random(rng), random(rng));
         float3 lp = light.origin.xyz + lightUV.x * light.u.xyz + lightUV.y * light.v.xyz;
-        float emission = emitter.optics.x * s.textures[emitter.flags.y < s.counts.z ? emitter.flags.y : 0]
-                                                .value.sample(texSampler, lightUV)
-                                                .r;
+        float3 emission = sampleMaterial(s, emitter, float4(lightUV, 0, 0), float4(1)).emission;
         float3 delta = lp - hit.position.xyz;
         float dist = length(delta), cosLight = dot(light.normalArea.xyz, -delta / dist);
+        if (emitter.flags.z)
+            cosLight = abs(cosLight);
         float3 wi = delta / dist;
         float cosSurface = dot(n, wi);
-        if (cosLight > 0 && cosSurface > 0) {
+        if (cosLight > 0 && cosSurface > 0 && dot(geometric, wi) > 0) {
             float bsdfPDF;
-            float4 bsdf = evaluateBSDF(m, p.wavelengths, n, wo, wi, tex, s, bsdfPDF);
+            float4 bsdf = evaluateBSDF(m, material, p.wavelengths, n, wo, wi, s, bsdfPDF);
             float lightPDF = dist * dist / (light.normalArea.w * cosLight * float(s.counts.w));
-            float4 contribution =
-                p.throughput * bsdf * emission * cosSurface * powerMIS(lightPDF, bsdfPDF) / lightPDF;
+            float4 contribution = p.throughput * bsdf * emissionSpectrum(emission, p.wavelengths) *
+                                  cosSurface * powerMIS(lightPDF, bsdfPDF) / lightPDF;
             uint slot = atomic_fetch_add_explicit(w.counts + 2, 1, memory_order_relaxed);
             if (slot < f.size.x * f.size.y) {
                 PTShadow sh;
@@ -88,18 +91,9 @@ kernel void shadePaths(constant PTScene &s [[buffer(0)]],
         }
         p.state.w = 1;
     } else {
-        float u = random(rng), v = random(rng);
-        if (m.flags.x == 0)
-            wi = localToWorld(float3(sqrt(u) * cos(2 * PI * v), sqrt(u) * sin(2 * PI * v), sqrt(1 - u)), n);
-        else {
-            float a = max(0.025f, m.optics.x * m.optics.x), cosTheta = sqrt((1 - u) / (1 + (a * a - 1) * u)),
-                  sinTheta = sqrt(max(0.0f, 1 - cosTheta * cosTheta));
-            float3 h =
-                localToWorld(float3(sinTheta * cos(2 * PI * v), sinTheta * sin(2 * PI * v), cosTheta), n);
-            wi = reflect(-wo, h);
-        }
-        float4 bsdf = evaluateBSDF(m, p.wavelengths, n, wo, wi, tex, s, pdf);
-        if (pdf <= 0 || dot(wi, n) <= 0)
+        wi = sampleBSDF(m, material, n, wo, rng);
+        float4 bsdf = evaluateBSDF(m, material, p.wavelengths, n, wo, wi, s, pdf);
+        if (pdf <= 0 || dot(wi, n) <= 0 || dot(wi, geometric) <= 0)
             return;
         p.throughput *= bsdf * abs(dot(n, wi)) / pdf;
         p.state.w = 0;

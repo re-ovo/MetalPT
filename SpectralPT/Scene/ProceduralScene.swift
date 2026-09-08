@@ -22,9 +22,13 @@ struct ProceduralScene {
             SceneMaterial(surface: .diffuse(reflectance: [0.07, 0.52, 0.14])),
             SceneMaterial(surface: .gold(roughness: 0.22)),
             SceneMaterial(surface: .dielectric),
-            SceneMaterial(surface: .emitter(color: [1, 1, 1], strength: 12)),
-            SceneMaterial(surface: .diffuse(reflectance: [0.8, 0.8, 0.8]), texture: 1),
-            SceneMaterial(surface: .emitter(color: [1, 1, 1], strength: 4), texture: 1),
+            SceneMaterial(surface: .absorbing, emission: .init(strength: 12)),
+            SceneMaterial(
+                surface: .diffuse(reflectance: [0.8, 0.8, 0.8]),
+                baseColorTexture: .init(texture: SceneTexture.checker.id)),
+            SceneMaterial(
+                surface: .absorbing, emission: .init(strength: 4),
+                emissiveTexture: .init(texture: SceneTexture.checker.id)),
         ]
         var room = SceneMesh()
         room.quad([-2, 0, 2], [2, 0, 2], [2, 0, -2], [-2, 0, -2], 0)

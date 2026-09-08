@@ -200,13 +200,16 @@ final class Renderer: NSObject, MTKViewDelegate {
         }
     }
     func validateSpectral() async throws -> [SIMD4<Float>] {
+        try await validateNumerics(kernel: "validateSpectral", count: 7)
+    }
+    func validateNumerics(kernel: String, count: Int) async throws -> [SIMD4<Float>] {
         await waitForGPU()
         guard let scene else {
             throw RenderFailure("先渲染一个场景")
         }
         let allocator = context.device.makeCommandAllocator()!
         let command = context.device.makeCommandBuffer()!
-        let result = try context.buffer(112, "Numerical validation", shared: true)
+        let result = try context.buffer(count * 16, "Numerical validation", shared: true)
         var w = PTWork()
         w.radiance = result.gpuAddress
         let root = try context.upload([w], "Validation work")
@@ -216,7 +219,7 @@ final class Renderer: NSObject, MTKViewDelegate {
         command.beginCommandBuffer(allocator: allocator)
         command.useResidencySet(residency)
         let e = command.makeComputeCommandEncoder()!
-        e.setComputePipelineState(context.pipelines["validateSpectral"]!)
+        e.setComputePipelineState(context.pipelines[kernel]!)
         e.setArgumentTable(table)
         e.dispatchThreadgroups(
             threadgroupsPerGrid: MTLSize(width: 1, height: 1, depth: 1),
@@ -229,6 +232,6 @@ final class Renderer: NSObject, MTKViewDelegate {
         await waitForGPU()
         return Array(
             UnsafeBufferPointer(
-                start: result.contents().bindMemory(to: SIMD4<Float>.self, capacity: 7), count: 7))
+                start: result.contents().bindMemory(to: SIMD4<Float>.self, capacity: count), count: count))
     }
 }

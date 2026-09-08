@@ -4,7 +4,7 @@
 
 - `SpectralPT/ContentView.swift` contains controls; `Views/MetalViewport.swift` bridges MetalKit and mouse input.
 - `Renderer/` separates orchestration (`Renderer`), pass ordering (`PathTracingPasses`), individual pass declarations (`Passes/`), frame resources, camera/state, Render Graph, and GPU scene upload (`BindlessScene`). Paths are relative to `SpectralPT/`.
-- `Scene/` contains a stable-ID scene graph, mesh-local material slots, typed materials, compiled instance/light descriptions, CPU geometry, demos, and optical data parsing. `Renderer/Shared.h` defines the CPU/GPU ABI.
+- `Scene/` contains a stable-ID scene graph, mesh-local material slots, typed materials, compiled instance/light descriptions, CPU geometry, image/texture/sampler assets, demos, and optical data parsing. `Renderer/Shared.h` defines the CPU/GPU ABI.
 - `Shaders/` separates sampling, spectra, and BSDF headers from per-stage `.metal` files (camera, intersection, shading, shadows, queues, accumulation, display, validation). Shared shader helpers must be inline to avoid duplicate definitions.
 - `Resources/` holds spectral data/licenses; `Assets.xcassets` holds app assets. `Tests/`, `scripts/`, and `docs/validation/` contain tests, workflows, and outputs at repository root.
 
@@ -32,7 +32,7 @@ Declare every pass resource access and GPU stage through its typed inputs in Ren
 
 ## Testing Guidelines
 
-Graph tests are standalone Swift assertions, not XCTest. Keep graph/ABI checks in `Tests/RenderGraphTests.swift` and hierarchy/material-binding checks in `Tests/SceneGraphTests.swift`, with descriptive failure messages. GPU integration checks live in `ValidationRunner.swift` and execute production shaders.
+Graph tests are standalone Swift assertions, not XCTest. Keep graph/ABI checks in `Tests/RenderGraphTests.swift`, hierarchy/material-binding checks in `Tests/SceneGraphTests.swift`, and primitive/image/binding checks in `Tests/SurfaceAssetTests.swift`, with descriptive failure messages. GPU integration checks live in `ValidationRunner.swift` and execute production shaders.
 
 Cover changed behavior with graph/ABI checks or deterministic GPU scenarios. For rendering changes, inspect images and record resolution, spp, depth, hardware, and validation status. There is no percentage coverage target. Simple changes do not require permanent unit-test code.
 

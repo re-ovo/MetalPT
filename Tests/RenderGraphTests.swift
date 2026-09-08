@@ -4,6 +4,7 @@ import Metal
 @main struct GraphTests {
     static func main() throws {
         try SceneGraphTests.run()
+        try SurfaceAssetTests.run()
         func require(_ b: Bool, _ message: String) {
             precondition(b, message)
         }
@@ -70,11 +71,11 @@ import Metal
             ac.barriers[1]!.from == .accelerationStructure && ac.barriers[1]!.to == .dispatch,
             "AS stage transition")
         require(MemoryLayout<PTPath>.stride == 112 && MemoryLayout<PTFrame>.stride == 112, "shared ABI")
-        require(MemoryLayout<PTScene>.stride == 80 && MemoryLayout<PTWork>.stride == 64, "bindless root ABI")
+        require(MemoryLayout<PTScene>.stride == 96 && MemoryLayout<PTWork>.stride == 64, "bindless root ABI")
         require(
             MemoryLayout<PTMesh>.stride == 16 && MemoryLayout<PTInstance>.stride == 96, "mesh/instance ABI")
         require(
-            MemoryLayout<PTLight>.stride == 80 && MemoryLayout<PTTexture>.stride == 8, "light/texture ABI")
+            MemoryLayout<PTLight>.stride == 80 && MemoryLayout<PTTexture>.stride == 16, "light/texture ABI")
         let lazy = RenderGraph()
         var allocated = 0
         let unusedBuffer = try lazy.createBuffer("dead buffer", description: BufferDescription(length: 4096))

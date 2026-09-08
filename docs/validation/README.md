@@ -21,3 +21,5 @@
 架构审查四项修复的回归记录见 [绑定与资源契约验证](contracts.md)。
 
 场景模型升级验证见 [scene-model.md](scene-model.md)。
+
+Primitive、图片纹理、着色法线和 PBR 验证见 [surface-assets.md](surface-assets.md)。

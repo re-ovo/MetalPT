@@ -17,13 +17,13 @@ struct SceneLight {
     var v: SIMD3<Float>
 }
 
-enum SceneTexture { case white, checker, stripes }
-
 struct SceneDescription {
     var meshes: [SceneMesh] = []
     var instances: [SceneInstance] = []
     var materials: [SceneMaterial] = []
     // Slot zero is always a white fallback.
+    var images: [SceneImage] = []
+    var samplers: [SceneSampler] = [.nearest]
     var textures: [SceneTexture] = [.white, .checker]
     var lights: [SceneLight] = []
 
@@ -41,25 +41,32 @@ struct SceneDescription {
         guard !textures.isEmpty else {
             throw RenderFailure("场景缺少默认纹理")
         }
-        guard case .white = textures[0] else {
+        guard case .white = textures[0].source else {
             throw RenderFailure("纹理第零槽必须为白色默认纹理")
         }
-        for material in materials {
-            guard material.roughness.isFinite, material.roughness >= 0,
-                material.emission.isFinite, material.emission >= 0,
-                material.color.x.isFinite, material.color.y.isFinite, material.color.z.isFinite
-            else {
-                throw RenderFailure("材质参数必须为有限值，粗糙度与发光强度不能为负")
+        guard !samplers.isEmpty, Set(images.map(\.id)).count == images.count,
+            Set(textures.map(\.id)).count == textures.count, Set(samplers.map(\.id)).count == samplers.count
+        else {
+            throw RenderFailure("缺少默认采样器或图片 ID 重复")
+        }
+        for texture in textures {
+            if case .image(let id) = texture.source, !images.contains(where: { $0.id == id }) {
+                throw RenderFailure("纹理引用的图片不存在")
             }
         }
+        for material in materials { try material.validate(samplers: Set(samplers.map(\.id))) }
         for m in meshes {
             guard !m.triangles.isEmpty else { throw RenderFailure("空网格") }
-            guard
-                m.vertices.allSatisfy({
-                    $0.position.x.isFinite && $0.position.y.isFinite && $0.position.z.isFinite
-                })
-            else {
-                throw RenderFailure("顶点包含非有限坐标")
+            for vertex in m.vertices {
+                let fields = [vertex.position, vertex.normal, vertex.uv, vertex.tangent, vertex.color]
+                guard
+                    fields.allSatisfy({ v in v.x.isFinite && v.y.isFinite && v.z.isFinite && v.w.isFinite }),
+                    vertex.attributes & ~UInt32(31) == 0,
+                    vertex.attributes & 1 == 0 || simd_length(vertex.normal.xyz) > 1e-8,
+                    vertex.attributes & 2 == 0
+                        || (simd_length(vertex.tangent.xyz) > 1e-8 && abs(vertex.tangent.w) == 1),
+                    vertex.attributes & 16 == 0 || (vertex.color.min() >= 0 && vertex.color.max() <= 1)
+                else { throw RenderFailure("顶点属性、法线或切线无效") }
             }
             for t in m.triangles {
                 guard t.indices.x < m.vertices.count, t.indices.y < m.vertices.count,
@@ -83,15 +90,33 @@ struct SceneDescription {
                 throw RenderFailure("无效实例或不可逆变换")
             }
         }
+        for instance in instances {
+            let mesh = meshes[instance.mesh]
+            for triangle in mesh.triangles {
+                let material = materials[instance.materials[Int(triangle.indices.w)]]
+                for binding in material.bindings {
+                    let mask = UInt32(4 << binding.texCoord)
+                    for index in [triangle.indices.x, triangle.indices.y, triangle.indices.z] {
+                        guard mesh.vertices[Int(index)].attributes & mask != 0 else {
+                            throw RenderFailure("材质引用了 Primitive 未提供的 UV 集")
+                        }
+                    }
+                }
+            }
+        }
         var emitters = Set<Int>()
         for light in lights {
             guard instances.indices.contains(light.instance), materials.indices.contains(light.material),
-                materials[light.material].kind == .emitter,
+                materials[light.material].emission.strength > 0,
                 simd_length(simd_cross(light.u, light.v)).isFinite,
                 simd_length(simd_cross(light.u, light.v)) > 1e-8,
                 emitters.insert(light.instance).inserted
             else {
                 throw RenderFailure("面积灯必须引用独立的有效矩形发光实例")
+            }
+            let emitter = materials[light.material]
+            guard emitter.alphaMode == .opaque, emitter.emissiveTexture?.texCoord ?? 0 == 0 else {
+                throw RenderFailure("登记的矩形采样灯需要 OPAQUE 和 UV0 发光纹理")
             }
             let instance = instances[light.instance]
             let mesh = meshes[instance.mesh]
