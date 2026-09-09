@@ -1,0 +1,137 @@
+{
+  "blackScenePassed" : true,
+  "cornell" : {
+    "litFraction" : 0.98177083333333337,
+    "meanRGB" : 0.3633542687908497
+  },
+  "cornellGPUms" : 13.8050417881459,
+  "cornellGPUmsStatistic" : "median, excluding first 4 frames",
+  "device" : "Apple M4",
+  "engineChecks" : {
+    "emitterContracts" : true,
+    "emptyScene" : true,
+    "graphCacheHits" : 89,
+    "incrementalBLAS" : true,
+    "instancedVsBakedDifference" : 0,
+    "lightCount" : 2,
+    "materialSlots" : true,
+    "passBindingContracts" : true,
+    "passed" : true,
+    "sceneHierarchy" : true,
+    "sharedMeshInstances" : 2,
+    "textureSlots" : 3
+  },
+  "frameResources" : {
+    "cachedBytes" : 45369856,
+    "graphCacheHits" : 70,
+    "graphCacheMisses" : 7,
+    "instanceCount" : 5,
+    "liveResources" : 42,
+    "meshCount" : 5,
+    "reusedBLASCount" : 0
+  },
+  "output" : "640x480",
+  "passed" : true,
+  "prism" : {
+    "litFraction" : 0.98834635416666672,
+    "meanRGB" : 0.50943583197167752
+  },
+  "prismGPUms" : 9.8303749691694975,
+  "prismGPUmsStatistic" : "median, excluding first 4 frames",
+  "render" : "320x240",
+  "rgbChecks" : [
+    [
+      0.20000000298023224,
+      0.5,
+      0.80000001192092896,
+      0
+    ],
+    [
+      1,
+      0.040000002831220627,
+      0,
+      0
+    ],
+    [
+      1,
+      0.70999997854232788,
+      0.28999999165534973,
+      0
+    ],
+    [
+      1.0000003576278687,
+      0,
+      0,
+      0
+    ]
+  ],
+  "spp" : 32,
+  "surfaceAssets" : {
+    "coverage" : [
+      [
+        1,
+        0,
+        0.25,
+        0.5
+      ],
+      [
+        0,
+        1,
+        0,
+        0
+      ],
+      [
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        0.74560546875,
+        0,
+        0,
+        0
+      ]
+    ],
+    "gallerySPP" : 32,
+    "normalFrames" : true,
+    "passed" : true,
+    "samplers" : true,
+    "sampleVsPDF" : [
+      [
+        0.96990966796875,
+        0.9705890417098999
+      ],
+      [
+        0.95404052734375,
+        0.95588201284408569
+      ],
+      [
+        0.939208984375,
+        0.94117671251296997
+      ]
+    ],
+    "stableTextureBindings" : true,
+    "textureViews" : true,
+    "whiteFurnace" : [
+      [
+        0.80202144384384155,
+        0.80202144384384155,
+        0.80202144384384155,
+        0
+      ],
+      [
+        0.61542057991027832,
+        0.61542057991027832,
+        0.61542057991027832,
+        0
+      ],
+      [
+        0.73114860057830811,
+        0.73114860057830811,
+        0.73114860057830811,
+        0
+      ]
+    ]
+  }
+}

@@ -1,5 +1,7 @@
 # 本机验证记录
 
+当前渲染器已改为 RGB，最新结果见 [RGB 验证](rgb.md)。下文及旧报告记录历史光谱版本。
+
 2026-09-08，Apple M4（10 GPU cores，32 GB），macOS 26.6.2，Xcode 26.6。
 
 - Debug / Release 构建成功。唯一构建提示为没有 AppIntents 依赖，跳过其元数据提取。

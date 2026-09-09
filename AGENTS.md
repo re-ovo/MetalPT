@@ -2,19 +2,19 @@
 
 ## Project Structure & Module Organization
 
-- `SpectralPT/ContentView.swift` contains controls; `Views/MetalViewport.swift` bridges MetalKit and mouse input.
-- `Renderer/` separates orchestration (`Renderer`), pass ordering (`PathTracingPasses`), individual pass declarations (`Passes/`), frame resources, camera/state, Render Graph, and GPU scene upload (`BindlessScene`). Paths are relative to `SpectralPT/`.
-- `Scene/` contains a stable-ID scene graph, mesh-local material slots, typed materials, compiled instance/light descriptions, CPU geometry, image/texture/sampler assets, demos, and optical data parsing. `Renderer/Shared.h` defines the CPU/GPU ABI.
-- `Shaders/` separates sampling, spectra, and BSDF headers from per-stage `.metal` files (camera, intersection, shading, shadows, queues, accumulation, display, validation). Shared shader helpers must be inline to avoid duplicate definitions.
-- `Resources/` holds spectral data/licenses; `Assets.xcassets` holds app assets. `Tests/`, `scripts/`, and `docs/validation/` contain tests, workflows, and outputs at repository root.
+- `MetalPT/ContentView.swift` contains controls; `Views/MetalViewport.swift` bridges MetalKit and mouse input.
+- `Renderer/` separates orchestration (`Renderer`), pass ordering (`PathTracingPasses`), individual pass declarations (`Passes/`), frame resources, camera/state, Render Graph, and GPU scene upload (`BindlessScene`). Paths are relative to `MetalPT/`.
+- `Scene/` contains a stable-ID scene graph, mesh-local material slots, typed materials, compiled instance/light descriptions, CPU geometry, image/texture/sampler assets, demos, and glTF import. `Renderer/Shared.h` defines the CPU/GPU ABI.
+- `Shaders/` separates sampling and RGB BSDF headers from per-stage `.metal` files (camera, intersection, shading, shadows, queues, accumulation, display, validation). Shared shader helpers must be inline to avoid duplicate definitions.
+- `Resources/` holds historical data attribution/licenses; `Assets.xcassets` holds app assets. `Tests/`, `scripts/`, and `docs/validation/` contain tests, workflows, and outputs at repository root.
 
 ## Build, Test, and Development Commands
 
-Use macOS 26.5+, an M3-or-newer Mac, and Xcode 26 with Metal Toolchain. Open `SpectralPT.xcodeproj` and run **SpectralPT / My Mac** for interactive development.
+Use macOS 26.5+, an M3-or-newer Mac, and Xcode 26 with Metal Toolchain. Open `MetalPT.xcodeproj` and run **MetalPT / My Mac** for interactive development.
 
 ```sh
-xcodebuild -project SpectralPT.xcodeproj -scheme SpectralPT \
-  -configuration Debug -derivedDataPath /tmp/SpectralPT-build \
+xcodebuild -project MetalPT.xcodeproj -scheme MetalPT \
+  -configuration Debug -derivedDataPath /tmp/MetalPT-build \
   CODE_SIGNING_ALLOWED=NO build
 scripts/test-graph.sh
 scripts/validate-gpu.sh validation
@@ -28,7 +28,7 @@ These commands build, test graph/ABI, validate GPU execution, capture frames, an
 
 Use four-space indentation, `UpperCamelCase` types, and `lowerCamelCase` functions and properties. Shared C structures use the `PT` prefix. Keep blocks expanded. Run `scripts/format.sh` using Xcode's `swift-format` and `clang-format` (override with `CLANG_FORMAT`). Repository configurations set a 110-column limit for Swift, MSL, and C headers.
 
-Declare every pass resource access and GPU stage through its typed inputs in Render Graph. Register indirect scene resources in `ResourceRegistry`; materialize transients after graph compilation. Preserve residency for indirect references and retain resources until GPU completion. Update ABI assertions whenever shared layouts change. Document spectral units, PDFs, and weighting assumptions.
+Declare every pass resource access and GPU stage through its typed inputs in Render Graph. Register indirect scene resources in `ResourceRegistry`; materialize transients after graph compilation. Preserve residency for indirect references and retain resources until GPU completion. Update ABI assertions whenever shared layouts change. Document linear RGB conventions, PDFs, and weighting assumptions.
 
 ## Testing Guidelines
 

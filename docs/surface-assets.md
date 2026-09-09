@@ -1,6 +1,6 @@
-# glTF 导入前的表面资产基础
+# 表面资产
 
-当前实现覆盖静态三角形 primitive、着色法线、图片纹理、采样器和 metallic-roughness 着色。未加入 glTF 文件解析器。
+当前实现覆盖静态三角形 primitive、着色法线、图片纹理、采样器和 metallic-roughness 着色。glTF 文件解析见 [导入说明](gltf-import.md)。
 
 ## Mesh 与顶点
 
@@ -34,7 +34,7 @@ Sampler GPU ID 表由场景根访问，SamplerState 随场景快照保留；buff
 
 几何法线负责朝向、偏移和玻璃介质边界；插值法线经逆转置变换用于非 delta BSDF。负缩放修正几何朝向和切线手性，矩形灯法线采用同一约定。法线贴图使用线性 RGB，XY 乘 normalScale；UV 变换或非 UV0 贴图使用对应 UV 导数建立切线空间。折射仍使用几何法线，避免改变封闭介质边界。
 
-PBR 使用 Lambert + GGX/Smith/Schlick：metallic 混合介电质 F0=0.04 与基色反射率，roughness 映射为 GGX alpha=roughness²（数值下限 0.001）。采样和 NEE 使用相同的漫反射/镜面混合 PDF。黄金仍可使用实测复折射率模型。发光是所有表面的附加属性，`absorbing` 表面可用于只发光、不反射的灯。
+PBR 使用 Lambert + GGX/Smith/Schlick：metallic 混合介电质 F0=0.04 与基色反射率，roughness 映射为 GGX alpha=roughness²（数值下限 0.001）。采样和 NEE 使用相同的漫反射/镜面混合 PDF。黄金使用 RGB F0=(1, 0.71, 0.29) 的 Schlick 近似。发光是所有表面的附加属性，`absorbing` 表面可用于只发光、不反射的灯。
 
 基色与发光纹理使用 sRGB 视图；MR 的 G/B 分别控制 roughness/metallic，法线与 AO 使用线性视图。顶点颜色调制基色和 alpha。AO 数据会采样并验证，但不再乘进已计算真实可见性的路径积分，避免重复遮挡。
 
@@ -42,7 +42,7 @@ OPAQUE 忽略 alpha；MASK 使用 alphaCutoff；BLEND 将 alpha 解释为随机�
 
 ## 当前边界
 
-- RGB→光谱仍使用原创有界解析基底；这是近似重建，不保证与 RGB glTF 查看器逐色匹配，也不是测量光谱。
+- 材质与路径计算均使用线性 RGB，颜色纹理解码一次；没有光谱重建。色调映射可能与其他 glTF 查看器不同。
 - mip 已生成并可按绑定 lod 访问，尚无 ray cone/射线微分自动选择 LOD；不存在屏幕导数时默认 LOD 0。
 - BLEND 是覆盖混合，不代表体积透射或折射；glTF transmission 薄表面透射已支持，volume 尚未实现。
 - NEE 仍只登记完整矩形灯（OPAQUE、规范 UV0）；其他发光网格靠路径命中贡献。

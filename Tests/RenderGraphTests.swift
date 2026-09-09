@@ -70,8 +70,8 @@ import Metal
         require(
             ac.barriers[1]!.from == .accelerationStructure && ac.barriers[1]!.to == .dispatch,
             "AS stage transition")
-        require(MemoryLayout<PTPath>.stride == 112 && MemoryLayout<PTFrame>.stride == 112, "shared ABI")
-        require(MemoryLayout<PTScene>.stride == 96 && MemoryLayout<PTWork>.stride == 64, "bindless root ABI")
+        require(MemoryLayout<PTPath>.stride == 80 && MemoryLayout<PTFrame>.stride == 112, "shared ABI")
+        require(MemoryLayout<PTScene>.stride == 80 && MemoryLayout<PTWork>.stride == 64, "bindless root ABI")
         require(
             MemoryLayout<PTMesh>.stride == 16 && MemoryLayout<PTInstance>.stride == 96, "mesh/instance ABI")
         require(

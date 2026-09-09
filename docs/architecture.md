@@ -1,22 +1,24 @@
 # 渲染器架构与扩展边界
 
+当前积分与累积均使用线性 RGB；玻璃 IOR 固定为 1.5。PTPath 删除波长及波长 PDF 后为 80 字节，PTScene 删除 CIE/Au 指针后为 80 字节。
+
 ## 场景数据与 GPU 快照
 
 `SceneGraph` 是 CPU 编辑层：Mesh、Material 与 Node 使用不同类型的 UUID，资产数组重排不会改变节点引用。节点具有父子关系、局部变换与可见性；父变换失效会传播到子树，编译时只重新计算失效的世界矩阵。重挂节点保留局部变换，拒绝环；删除节点同时删除子树。编译结果 `SceneDescription` 是扁平的渲染快照，用密集索引供 GPU 上传。
 
-`SceneMesh` 使用独立 CPU 顶点/三角形结构，上传时转换为共享 ABI。三角形引用 Mesh 内部材质槽，节点将每个槽绑定到 MaterialID，GPU `PTInstance` 通过独立指针访问绑定表。同一个 Mesh/BLAS 可以具有不同的多材质组合；`PTInstance` 大小为 96 字节。`SceneMaterial.Surface` 支持漫反射、黄金、玻璃、吸收表面及 metallic-roughness；发光为附加属性。图片/纹理/采样器分离，支持五种纹理语义、UV0/1、顶点颜色、切线、法线贴图和透明覆盖。结构及使用方式见 [表面资产](surface-assets.md)。
+`SceneMesh` 使用独立 CPU 顶点/三角形结构，上传时转换为共享 ABI。三角形引用 Mesh 内部材质槽，节点将每个槽绑定到 MaterialID，GPU `PTInstance` 通过独立指针访问绑定表。同一个 Mesh/BLAS 可以具有不同的多材质组合；`PTInstance` 大小为 96 字节。`SceneMaterial.Surface` 支持漫反射、黄金、玻璃、吸收表面及 metallic-roughness；发光为附加属性。图片/纹理/采样器分离，支持六种纹理语义、UV0/1、顶点颜色、切线、法线贴图和透明覆盖。结构及使用方式见 [表面资产](surface-assets.md)。
 
 纹理资源 ID 表按场景实际数量分配，材质引用超界时使用第零槽的白色纹理。NEE 均匀选择灯光，直接采样及发光表面命中的 MIS 都包含灯光选择概率；未登记为采样灯的发光几何仍通过路径命中贡献。采样灯必须对应独立矩形实例；两个三角形须沿任一对角线完整覆盖矩形，且使用与采样参数一致的规范 0–1 UV。重叠、缺面或自定义 UV 会被拒绝，以保证 NEE 与路径命中的发光求值一致。
 
 `Renderer.sceneGraph` 接收编辑后的图；赋值后下次渲染编译新快照并重置累积。内置场景及验证用 `sceneOverride` 也经过同一编译路径；显式 sceneGraph 优先。新 `BindlessScene` 按 MeshID 和完整几何比较复用上一已提交快照的顶点、索引及 BLAS。仅实例变换或材质变化时不编码 BLAS 构建，只构建新的 TLAS；几何变化构建对应的新 BLAS。复用 AS 作为已初始化资源导入图，跨帧完成事件提供同步，旧快照仍由在途帧持有。
 
-该复用只覆盖相邻快照；材质、纹理、光谱和实例表仍整表上传，TLAS 使用新分配的 build 而非 refit。几何比较为线性扫描，尚无内容版本、跨场景资产缓存、异步上传、模型加载、LOD或蒙皮。
+该复用只覆盖相邻快照；材质、纹理和实例表仍整表上传，TLAS 使用新分配的 build 而非 refit。几何比较为线性扫描，尚无内容版本、跨场景资产缓存、异步上传、LOD或蒙皮。
 
 ## 资源登记与驻留
 
 `ResourceRegistry.Handle` 包含登记表身份、槽位和代数，拒绝失效或跨表句柄。删除后可复用 CPU 槽位，旧快照继续持有原分配，因此不会改变在途帧使用的 GPU 地址。该句柄用于 CPU 管理；Shader 使用快照内的密集索引。
 
-场景登记表中的每个 buffer、texture 和 AS 单独导入 Render Graph。Pass 声明包含间接访问的网格、BLAS、材质、纹理、光谱及灯光资源。最终驻留集直接取自编译后存活的图资源，无额外手工维护的驻留清单。帧槽保留快照和解析资源直至 GPU 完成；SamplerState 不属于 MTLAllocation，由快照单独持有。
+场景登记表中的每个 buffer、texture 和 AS 单独导入 Render Graph。Pass 声明包含间接访问的网格、BLAS、材质、纹理及灯光资源。最终驻留集直接取自编译后存活的图资源，无额外手工维护的驻留清单。帧槽保留快照和解析资源直至 GPU 完成；SamplerState 不属于 MTLAllocation，由快照单独持有。
 
 ## Pass 与 Render Graph
 

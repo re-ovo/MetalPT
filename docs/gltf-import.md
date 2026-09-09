@@ -2,9 +2,11 @@
 
 将单个 `.glb` 或 `.gltf` 拖入视口，或点击「打开模型」。对于含外部 bin / 图片的 glTF，使用「打开模型文件夹」授予目录读取权限，再选择文件。加载完成后自动取景并添加查看灯光；失败保留当前场景，连续加载仅安装最新结果。「返回内置场景」恢复演示场景。
 
-支持 glTF 2.0 静态三角形、三角带和三角扇，节点 matrix / TRS、共享网格、多材质、交错 / normalized / sparse accessor、UV0/1、顶点色、PNG/JPEG 和 metallic-roughness 材质。支持 `KHR_texture_transform`、`KHR_materials_emissive_strength`、`KHR_materials_transmission`。动画使用静态姿态；蒙皮、morph targets 和未知必需扩展会明确报错。未知可选扩展在界面提示。RGB 材质仍使用渲染器的近似光谱重建。
+支持 glTF 2.0 静态三角形、三角带和三角扇，节点 matrix / TRS、共享网格、多材质、交错 / normalized / sparse accessor、UV0/1、顶点色、PNG/JPEG 和 metallic-roughness 材质。支持 `KHR_texture_transform`、`KHR_materials_emissive_strength`、`KHR_materials_transmission`。动画使用静态姿态；蒙皮、morph targets 和未知必需扩展会明确报错。未知可选扩展在界面提示。材质颜色直接在线性 RGB 中参与积分。
 
 文件体积、顶点总量和三角形总量没有人为配额；保留数据范围、整数表示与 GPU 资源有效性检查。当前 CPU accessor 解码和主线程纹理准备尚未针对大模型优化。
+
+本文以下本机 M4 结果为 RGB 重构前的历史验证；当前记录见 [RGB 验证](validation/rgb.md)。
 
 ## 验证
 
@@ -28,7 +30,7 @@ CPU 测试生成 `/tmp/spectral-import-fixture.glb`，覆盖交错数据、norma
 
 `KHR_materials_transmission` 支持 factor（默认 0）乘以 transmissionTexture 的线性 R 通道，复用 UV0/1、采样器和纹理变换。透射替代非金属的漫反射分量，保留菲涅耳反射，并由 baseColor 着色；metallic=1 时不透射。Alpha 继续表示表面覆盖率，OPAQUE 材质也可以透光。
 
-光滑表面使用离散反射 / 直透采样；粗糙表面使用 GGX 薄表面透射分布，采样与求值使用匹配的双半球 PDF。直接光照支持表面两侧，delta 路径正确跳过有限 PDF 的 MIS。此模型没有宏观折射、体积吸收或色散，不复用 BK7 Sellmeier 材质；厚玻璃需要后续的 volume / IOR 等支持。
+光滑表面使用离散反射 / 直透采样；粗糙表面使用 GGX 薄表面透射分布，采样与求值使用匹配的双半球 PDF。直接光照支持表面两侧，delta 路径正确跳过有限 PDF 的 MIS。此模型没有宏观折射、体积吸收或色散，与固定 IOR=1.5 的封闭玻璃材质独立；厚玻璃需要后续的 volume / IOR 等支持。
 
 实现依据：[KHR_materials_transmission 规范](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_transmission)。
 
