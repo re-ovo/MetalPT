@@ -1,6 +1,6 @@
 # MetalPT
 
-原生 macOS **RGB 路径追踪器**，使用 SwiftUI、Metal 4 和 MSL。渲染使用线性 RGB，不再使用光谱采样、光学数据表或色散。
+原生 macOS **路径追踪器**，使用 SwiftUI、Metal 4 和 MSL。
 
 需要 macOS 26.5+、M3 或更新 Apple Silicon，以及带 Metal Toolchain 的 Xcode 26。打开 `MetalPT.xcodeproj`，选择 **MetalPT / My Mac** 运行。
 
