@@ -5,6 +5,16 @@ enum SceneGraphTests {
         func rejects(_ message: String, _ operation: () throws -> Void) {
             do { try operation(); preconditionFailure(message) } catch {}
         }
+        var analytic = ScenePunctualLight(name: "test", kind: .spot)
+        try analytic.validate()
+        analytic.direction = .zero
+        rejects("Zero light direction accepted") { try analytic.validate() }
+        analytic.direction = [0, 0, -1]
+        analytic.intensity = -.infinity
+        rejects("Invalid light intensity accepted") { try analytic.validate() }
+        analytic.intensity = 1
+        analytic.innerAngle = analytic.outerAngle
+        rejects("Invalid spot cone accepted") { try analytic.validate() }
         var mesh = SceneMesh()
         mesh.quad([-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0], 0)
         mesh.triangles[1].indices.w = 1

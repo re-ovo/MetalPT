@@ -35,6 +35,14 @@ nonisolated enum GLTFPresentation {
         for i in result.instances.indices {
             result.instances[i].transform = fit * result.instances[i].transform
         }
+        for i in result.punctualLights.indices {
+            result.punctualLights[i].position = (fit * SIMD4(result.punctualLights[i].position, 1)).xyz
+            // Viewer normalization changes scene units, so compensate inverse-square illumination.
+            if result.punctualLights[i].kind != .directional {
+                result.punctualLights[i].intensity *= scale * scale
+                result.punctualLights[i].range *= scale
+            }
+        }
         let material = result.materials.count
         result.materials.append(SceneMaterial(emission: .init(strength: 3), doubleSided: true))
         for (origin, u, v) in [

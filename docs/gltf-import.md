@@ -48,7 +48,7 @@ SPECTRAL_TRANSMISSION_VALIDATE=1 SPECTRAL_WIDTH=320 SPECTRAL_HEIGHT=240 scripts/
 
 diffuseTexture 的 RGB 经 sRGB 解码并乘顶点颜色，alpha 用于 OPAQUE/MASK/BLEND；specularGlossinessTexture 的 RGB 经 sRGB 解码作为独立 F0，alpha 保持线性并乘 glossinessFactor。两种纹理的 alpha 不混用。交点参数使用 `c_diff = diffuse.rgb * (1 - max(F0))`、`alpha = (1 - glossiness)^2`，GGX 保留数值下限，与 MR 共享 BSDF 求值和混合 PDF。SG 当前不叠加 transmission 扩展。
 
-本地 Bistro 的 254 个材质中，234 个使用 SG、19 个使用 MR（其中 18 个附加 transmission）。本次补齐其 SG 材质导入与着色路径；`KHR_lights_punctual` 方向光仍未实现，不能据此认为原场景光照已完整还原。`MSFT_texture_dds` 仍被忽略，该文件的全部纹理同时提供标准 PNG source。
+本地 Bistro 的 254 个材质中，234 个使用 SG、19 个使用 MR（其中 18 个附加 transmission）。本次补齐其 SG 材质导入与着色路径；已支持 `KHR_lights_punctual` 的点光源、聚光灯和平行光，包括 Bistro 的方向光。查看器仍额外添加两个查看灯光，因此显示结果并非仅由资产自带灯光照明。`MSFT_texture_dds` 仍被忽略，该文件的全部纹理同时提供标准 PNG source。
 
 依据：[KHR_materials_pbrSpecularGlossiness](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Archived/KHR_materials_pbrSpecularGlossiness)。
 
@@ -67,3 +67,9 @@ diffuseTexture 的 RGB 经 sRGB 解码并乘顶点颜色，alpha 用于 OPAQUE/M
 位置、法线、UV 等其他 accessor 仍严格拒绝 NaN/Inf；错误现在包含 accessor 编号、记录与分量，方便定位源数据。本地 Bistro 原始字节中有 12 个切线 accessor 的 847 条记录含 NaN，加上零方向等无效值，共 13552 条切线需要回退。
 
 完整 Bistro 已通过此次切线容错后的导入与 GPU 验证，详见 [Bistro 切线验证](validation/bistro-tangents.md)。
+
+## 解析灯光
+
+`KHR_lights_punctual` 灯光继承节点世界变换，默认沿局部 −Z 照射。导入颜色为线性 RGB；支持强度、范围及聚光内外锥半角。灯光保留在原始场景树节点中，可在检查器中启用、编辑与删除。
+
+查看器将模型归一化到较小的显示空间时，同步变换灯光位置；点光源与聚光灯的范围乘缩放比例、强度乘缩放比例平方，以保持相对照明。平行光强度不变。节点自身的缩放不会改变灯光强度、范围或锥角。

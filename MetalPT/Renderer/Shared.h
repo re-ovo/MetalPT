@@ -83,7 +83,10 @@ typedef struct {
 
 typedef struct {
     PTFloat4 origin, u, v, normalArea;
-    PTUInt4 indices; // material, instance, reserved, reserved
+    // kind 0: rectangle; 1: point; 2: spot; 3: directional.
+    // Analytic lights: origin=position, u=RGB intensity, v=travel direction,
+    // normalArea=(cos inner, cos outer, range [0=infinite], 0).
+    PTUInt4 indices; // material, instance, kind, reserved
 } PTLight;
 
 typedef struct {

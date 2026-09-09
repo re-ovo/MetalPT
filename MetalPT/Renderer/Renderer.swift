@@ -51,6 +51,44 @@ final class Renderer: NSObject, MTKViewDelegate {
         model.paused = false
     }
 
+    func updatePunctualLights(_ lights: [ScenePunctualLight]) throws {
+        guard let scene else { throw RenderFailure("场景尚未就绪") }
+        var description = model.sceneSnapshot
+        description.punctualLights = lights
+        let replacement = try BindlessScene(context, updatingLights: description, from: scene)
+        func updateTree(_ nodes: [SceneTreeNode]) -> [SceneTreeNode] {
+            nodes.compactMap { node in
+                var node = node
+                if let id = node.light {
+                    guard let light = lights.first(where: { $0.id == id }) else {
+                        // Imported light nodes can also contain meshes or children.
+                        node.light = nil
+                        if node.instance == nil && node.children == nil { return nil }
+                        return node
+                    }
+                    node.name = light.name
+                }
+                node.children = node.children.map { updateTree($0) }
+                return node
+            }
+        }
+        description.hierarchy = updateTree(description.hierarchy)
+        func lightIDs(_ nodes: [SceneTreeNode]) -> Set<NodeID> {
+            Set(nodes.compactMap(\.light)).union(nodes.flatMap { lightIDs($0.children ?? []) })
+        }
+        let existing = lightIDs(description.hierarchy)
+        for light in lights where !existing.contains(light.id) {
+            description.hierarchy.append(SceneTreeNode(id: light.id, name: light.name, light: light.id))
+        }
+        self.scene = replacement
+        // Preserve source snapshot if the renderer later recompiles the scene.
+        sceneOverride = description
+        sceneGraph = nil
+        sceneKind = model.scene
+        model.sceneSnapshot = description
+        model.resetToken += 1
+    }
+
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
     }
     func draw(in view: MTKView) {

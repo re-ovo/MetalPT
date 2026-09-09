@@ -24,6 +24,7 @@ final class BindlessScene {
     let resources: [ResourceRegistry.Entry]
     let root: MTLBuffer
     let rootHandle: ResourceRegistry.Handle
+    private let lightHandle: ResourceRegistry.Handle
     let intersectionResources: [ResourceRegistry.Handle]
     let shadingResources: [ResourceRegistry.Handle]
     let meshBuilds: [Build]
@@ -165,15 +166,8 @@ final class BindlessScene {
             context: context, scene: description, registry: registry, prepared: preparedTextures)
         samplers = textureUpload.samplers
         var shading = textureUpload.handles
-        let lights: [PTLight] = description.lights.map { light in
-            let t = description.instances[light.instance].transform
-            let o = t * SIMD4(light.origin, 1), u = t * SIMD4(light.u, 0), v = t * SIMD4(light.v, 0)
-            let cross = simd_cross(u.xyz, v.xyz), area = simd_length(cross)
-            return PTLight(
-                origin: o, u: u, v: v,
-                normalArea: SIMD4(cross / area * (simd_determinant(t) < 0 ? -1 : 1), area),
-                indices: [UInt32(light.material), UInt32(light.instance), 0, 0])
-        }
+        let lights: [PTLight] =
+            Self.rectangleLights(description) + description.punctualLights.map { $0.gpu() }
         let (meshTable, mh) = try upload(meshes, "Mesh table")
         let (instanceTable, insth) = try upload(instances, "Instance table")
         let textureIndices = Dictionary(
@@ -187,6 +181,7 @@ final class BindlessScene {
         let (samplerTable, sah) = try upload(
             samplers.map { PTSampler(value: $0.gpuResourceID._impl) }, "Sampler ID table")
         let (lightTable, lh) = try upload(lights, "Light table")
+        lightHandle = lh
         var scene = PTScene()
         scene.meshes = meshTable.gpuAddress
         scene.instances = instanceTable.gpuAddress
@@ -206,5 +201,55 @@ final class BindlessScene {
         intersectionResources = intersection + [mh, insth] + shading
         shadingResources = shading
         resources = registry.snapshot()
+    }
+    private static func rectangleLights(_ description: SceneDescription) -> [PTLight] {
+        description.lights.map { light in
+            let t = description.instances[light.instance].transform
+            let o = t * SIMD4(light.origin, 1), u = t * SIMD4(light.u, 0), v = t * SIMD4(light.v, 0)
+            let cross = simd_cross(u.xyz, v.xyz), area = simd_length(cross)
+            return PTLight(
+                origin: o, u: u, v: v,
+                normalArea: SIMD4(cross / area * (simd_determinant(t) < 0 ? -1 : 1), area),
+                indices: [UInt32(light.material), UInt32(light.instance), 0, 0])
+        }
+    }
+
+    /// Replace only immutable light/root buffers; in-flight frames retain the previous snapshot.
+    init(_ context: MetalContext, updatingLights description: SceneDescription, from previous: BindlessScene)
+        throws
+    {
+        for light in description.punctualLights { try light.validate() }
+        let registry = ResourceRegistry()
+        let lights = Self.rectangleLights(description) + description.punctualLights.map { $0.gpu() }
+        let table = try context.upload(lights, "Light table")
+        lightHandle = registry.insert(table, name: "Light table")
+        var header = previous.root.contents().load(as: PTScene.self)
+        header.lights = table.gpuAddress
+        header.counts.w = UInt32(lights.count)
+        root = try context.upload([header], "Bindless scene root")
+        rootHandle = registry.insert(root, name: "Bindless scene root")
+        let newRoot = rootHandle, newLight = lightHandle
+        func remap(_ handles: [ResourceRegistry.Handle]) -> [ResourceRegistry.Handle] {
+            handles.map {
+                $0 == previous.rootHandle ? newRoot : ($0 == previous.lightHandle ? newLight : $0)
+            }
+        }
+        samplers = previous.samplers
+        meshUploads = previous.meshUploads
+        reusedAccelerationStructures = previous.reusedAccelerationStructures
+        meshBuilds = previous.meshBuilds
+        tlas = previous.tlas
+        tlasDescriptor = previous.tlasDescriptor
+        scratchTLAS = previous.scratchTLAS
+        tlasHandle = previous.tlasHandle
+        instanceHandle = previous.instanceHandle
+        scratchHandle = previous.scratchHandle
+        intersectionResources = remap(previous.intersectionResources)
+        shadingResources = remap(previous.shadingResources)
+        resources =
+            previous.resources.filter {
+                $0.handle != previous.rootHandle && $0.handle != previous.lightHandle
+            }
+            + registry.snapshot()
     }
 }

@@ -1,5 +1,6 @@
 #include "BSDF.h"
 #include "PathQueue.h"
+#include "LightSampling.h"
 
 kernel void shadePaths(constant PTScene &s [[buffer(0)]],
                        constant PTWork &w [[buffer(1)]],
@@ -31,32 +32,27 @@ kernel void shadePaths(constant PTScene &s [[buffer(0)]],
     }
     if (bsdf.kind == BSDFKind::absorbing)
         return;
-    // Next event estimation only for non-delta BSDFs, sampling registered rectangle lights.
+    // Next event estimation only for non-delta BSDFs, sampling registered area and analytic lights.
     if (hasContinuousBSDF(bsdf) && s.counts.w > 0 && f.display.w != 1) {
         uint lightIndex = s.counts.w == 1 ? 0 : min(uint(random(rng) * s.counts.w), s.counts.w - 1);
-        PTLight light = s.lights[lightIndex];
-        PTMaterial emitter = s.materials[light.indices.x];
-        float2 lightUV = float2(random(rng), random(rng));
-        float3 lp = light.origin.xyz + lightUV.x * light.u.xyz + lightUV.y * light.v.xyz;
-        float3 emission = sampleMaterial(s, emitter, float4(lightUV, 0, 0), float4(1)).emission;
-        float3 delta = lp - hit.position.xyz;
-        float dist = length(delta), cosLight = dot(light.normalArea.xyz, -delta / dist);
-        if (emitter.flags.z)
-            cosLight = abs(cosLight);
-        float3 wi = delta / dist;
+        LightSample light = sampleLight(s, s.lights[lightIndex], hit.position.xyz, rng);
+        float3 wi = light.direction;
         float cosSurface = dot(n, wi);
-        if (cosLight > 0 && cosSurface * dot(geometric, wi) > 0) {
+        if (light.pdf > 0 && any(light.emission > 0) && cosSurface * dot(geometric, wi) > 0) {
             float bsdfPDF;
             float3 value = evaluateBSDF(bsdf, n, wo, wi, bsdfPDF);
-            float lightPDF = dist * dist / (light.normalArea.w * cosLight * float(s.counts.w));
-            float3 contribution = p.throughput.xyz * value * emission * abs(cosSurface) *
-                                  powerMIS(lightPDF, bsdfPDF) / lightPDF;
+            float weight = light.delta ? 1.0f : powerMIS(light.pdf, bsdfPDF);
+            float3 contribution =
+                p.throughput.xyz * value * light.emission * abs(cosSurface) * weight / light.pdf;
             uint slot = atomic_fetch_add_explicit(w.counts + 2, 1, memory_order_relaxed);
             if (slot < f.size.x * f.size.y) {
                 PTShadow sh;
-                float3 o = offsetPoint(hit.position.xyz, ng, wi), toLight = lp - o;
+                float3 o = offsetPoint(hit.position.xyz, ng, wi);
+                float3 toLight = light.position - o;
                 sh.origin = float4(o, 0);
-                sh.direction = float4(normalize(toLight), max(0.0f, length(toLight) - 4e-5f));
+                sh.direction = light.infinite
+                                   ? float4(wi, INFINITY)
+                                   : float4(normalize(toLight), max(0.0f, length(toLight) - 4e-5f));
                 sh.contribution = float4(contribution, 0);
                 sh.info = uint4(p.state.x, 0, 0, 0);
                 w.shadows[slot] = sh;

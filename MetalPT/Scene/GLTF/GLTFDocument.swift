@@ -3,7 +3,22 @@ import Foundation
 nonisolated struct GLTFDocument: Decodable {
     struct Asset: Decodable { let version: String; let minVersion: String? }
     struct Scene: Decodable { let nodes: [Int]? }
+    struct PunctualExtension: Decodable {
+        struct Light: Decodable {
+            struct Spot: Decodable { let innerConeAngle: Float?; let outerConeAngle: Float? }
+            let name: String?; let type: String; let color: [Float]?; let intensity: Float?
+            let range: Float?; let spot: Spot?
+        }
+        let lights: [Light]
+    }
+    struct Extensions: Decodable { let KHR_lights_punctual: PunctualExtension? }
+    let extensions: Extensions?
     struct Node: Decodable {
+        struct Extensions: Decodable {
+            struct LightReference: Decodable { let light: Int }
+            let KHR_lights_punctual: LightReference?
+        }
+        let extensions: Extensions?
         let name: String?; let children: [Int]?; let mesh: Int?; let skin: Int?
         let matrix: [Float]?; let translation: [Float]?; let rotation: [Float]?; let scale: [Float]?
     }

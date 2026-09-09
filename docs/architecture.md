@@ -8,7 +8,7 @@
 
 `SceneMesh` 使用独立 CPU 顶点/三角形结构，上传时转换为共享 ABI。三角形引用 Mesh 内部材质槽，节点将每个槽绑定到 MaterialID，GPU `PTInstance` 通过独立指针访问绑定表。同一个 Mesh/BLAS 可以具有不同的多材质组合；`PTInstance` 大小为 96 字节。`SceneMaterial.Surface` 支持漫反射、黄金、玻璃、吸收表面及 metallic-roughness；发光为附加属性。图片/纹理/采样器分离，支持七种纹理语义、UV0/1、顶点颜色、切线、法线贴图和透明覆盖。结构及使用方式见 [表面资产](surface-assets.md)。
 
-纹理资源 ID 表按场景实际数量分配，材质引用超界时使用第零槽的白色纹理。NEE 均匀选择灯光，直接采样及发光表面命中的 MIS 都包含灯光选择概率；未登记为采样灯的发光几何仍通过路径命中贡献。采样灯必须对应独立矩形实例；两个三角形须沿任一对角线完整覆盖矩形，且使用与采样参数一致的规范 0–1 UV。重叠、缺面或自定义 UV 会被拒绝，以保证 NEE 与路径命中的发光求值一致。
+纹理资源 ID 表按场景实际数量分配，材质引用超界时使用第零槽的白色纹理。NEE 均匀选择灯光，直接采样及发光表面命中的 MIS 都包含灯光选择概率；未登记为采样灯的发光几何仍通过路径命中贡献。矩形采样灯必须对应独立矩形实例；两个三角形须沿任一对角线完整覆盖矩形，且使用与采样参数一致的规范 0–1 UV。重叠、缺面或自定义 UV 会被拒绝，以保证 NEE 与路径命中的发光求值一致。
 
 `Renderer.sceneGraph` 接收编辑后的图；赋值后下次渲染编译新快照并重置累积。内置场景及验证用 `sceneOverride` 也经过同一编译路径；显式 sceneGraph 优先。新 `BindlessScene` 按 MeshID 和完整几何比较复用上一已提交快照的顶点、索引及 BLAS。仅实例变换或材质变化时不编码 BLAS 构建，只构建新的 TLAS；几何变化构建对应的新 BLAS。复用 AS 作为已初始化资源导入图，跨帧完成事件提供同步，旧快照仍由在途帧持有。
 
@@ -53,3 +53,11 @@ CPU `SceneMaterial.Surface` 保留 Metallic-Roughness 和 Specular-Glossiness �
 时间戳接口参考 Apple 的 [Metal 4 Counter Heap](https://developer.apple.com/documentation/metal/mtl4counterheap)。统计表示 Pass 前后 GPU 时间戳间隔，不应当作无测量开销的独占执行时间。
 
 本机已直接对照 `MTL4CounterHeap`、`mach_absolute_time()` 与 `sampleTimestamps()`：前两者使用 Mach ticks，后者返回纳秒，不能把后者的 1:1 GPU/CPU 比例直接用于 heap 数值。
+
+## 解析灯光与交互编辑
+
+点光源、聚光灯和平行光存于 `SceneDescription.punctualLights`，上传时接在矩形灯之后，矩形灯的实例索引映射不变。`PTLight` 保持 80 字节，`indices.z` 标记类型；解析灯光复用其余字段保存世界位置、线性 RGB 强度、照射方向、锥角余弦及范围。字段语义见 `Shared.h`。
+
+所有灯光共同参与均匀选择；矩形灯使用立体角 PDF 与 MIS，delta 光源使用离散选择概率和 MIS 权重 1。点/聚光的强度单位为 cd，平行光为 lux；输出采用现有曝光与色调映射。距离衰减、范围平滑截断和聚光过渡依据 [Khronos KHR_lights_punctual](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_lights_punctual) 的定义。三种解析灯光均产生硬阴影；发光点本身不作为可见几何或镜面命中目标。
+
+编辑只创建新灯光表和场景根表，复用所有几何、纹理及加速结构。新的资源句柄替换对应 pass 依赖，其余句柄保持不变。旧帧持有旧快照直至 GPU 完成，避免 CPU 写入正在使用的缓冲；编辑触发累积失效。当前灯光编辑只保存在内存中，切换或重新导入场景会重置，尚无保存/导出功能。

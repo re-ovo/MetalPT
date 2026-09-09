@@ -18,6 +18,7 @@ nonisolated struct SceneGraph {
         var emitter: Emitter?
     }
 
+    var punctualLights: [ScenePunctualLight] = []
     var meshes: [SceneMesh] = []
     var materials: [SceneMaterial] = []
     var images: [SceneImage] = []
@@ -32,6 +33,7 @@ nonisolated struct SceneGraph {
 
     init(description: SceneDescription) throws {
         try description.validate()
+        punctualLights = description.punctualLights
         meshes = description.meshes
         materials = description.materials
         textures = description.textures
@@ -127,6 +129,7 @@ nonisolated struct SceneGraph {
         let materialIndices = Dictionary(uniqueKeysWithValues: materials.enumerated().map { ($1.id, $0) })
         let materialSlotCounts = meshes.map(\.materialSlotCount)
         var result = SceneDescription()
+        result.punctualLights = punctualLights
         result.meshes = meshes
         result.materials = materials
         result.textures = textures
@@ -173,6 +176,9 @@ nonisolated struct SceneGraph {
                 children: descendants.isEmpty ? nil : descendants)
         }
         result.hierarchy = (children[nil] ?? []).map { tree($0) }
+        for light in punctualLights {
+            result.hierarchy.append(SceneTreeNode(id: light.id, name: light.name, light: light.id))
+        }
         try result.validate()
         return result
     }

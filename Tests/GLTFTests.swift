@@ -67,6 +67,38 @@ import simd
         } catch is CancellationError {
             assert(checkpoints == 2, "Importer cancellation checkpoint")
         }
+        var litJSON = json
+        litJSON["extensionsRequired"] = ["KHR_lights_punctual"]
+        litJSON["extensions"] = [
+            "KHR_lights_punctual": [
+                "lights": [
+                    ["type": "point", "intensity": 4, "range": 10],
+                    ["type": "spot", "spot": ["innerConeAngle": 0.1, "outerConeAngle": 0.5]],
+                    ["type": "directional"],
+                ]
+            ]
+        ]
+        litJSON["nodes"] = [
+            ["translation": [0, 2, 0], "children": [1, 2, 3]],
+            ["mesh": 0, "extensions": ["KHR_lights_punctual": ["light": 0]]],
+            ["mesh": 0, "translation": [3, 0, 0], "extensions": ["KHR_lights_punctual": ["light": 1]]],
+            ["extensions": ["KHR_lights_punctual": ["light": 2]]],
+        ]
+        let litScene = try load(litJSON)
+        precondition(litScene.punctualLights.count == 3, "All punctual light types imported")
+        precondition(
+            litScene.punctualLights[0].position == SIMD3<Float>(0, 2, 0), "Light inherits parent transform")
+        precondition(
+            litScene.punctualLights[1].direction == SIMD3<Float>(0, 0, -1), "Light local -Z direction")
+        precondition(
+            litScene.hierarchy[0].children?[0].light == litScene.punctualLights[0].id,
+            "Light attached to original tree node")
+        let fittedLights = try GLTFPresentation.prepare(litScene).punctualLights
+        precondition(
+            abs(fittedLights[0].intensity / 4 - pow(fittedLights[0].range / 10, 2)) < 0.0001,
+            "Viewer normalization preserves inverse-square illumination")
+        precondition(fittedLights[2].intensity == 1, "Viewer normalization preserves directional intensity")
+        try glb(litJSON).write(to: URL(fileURLWithPath: "/tmp/punctual-lights-fixture.glb"))
         let scene = try load(json)
         precondition(
             scene.hierarchy.count == 1 && scene.hierarchy[0].children?.count == 2,

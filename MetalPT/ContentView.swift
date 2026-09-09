@@ -44,6 +44,15 @@ struct ContentView: View {
                 }
             }
             ToolbarItemGroup(placement: .primaryAction) {
+                Menu {
+                    ForEach(ScenePunctualLight.Kind.allCases) { kind in
+                        Button(kind.title, systemImage: kind.icon) { model.addLight(kind) }
+                    }
+                } label: {
+                    Label("添加灯光", systemImage: "plus")
+                }
+                .help("在当前相机位置添加灯光")
+                .disabled(model.sceneSnapshot.instances.isEmpty || model.importer.isLoading)
                 Button {
                     model.paused.toggle()
                 } label: {
@@ -84,8 +93,12 @@ struct ContentView: View {
             } else {
                 List(selection: $model.selectedNode) {
                     OutlineGroup(filteredTree, children: \.children) { node in
-                        Label(node.name, systemImage: node.instance == nil ? "folder" : "cube")
-                            .lineLimit(1).help(node.name).tag(node.id)
+                        Label(
+                            node.name,
+                            systemImage: node.light != nil
+                                ? "lightbulb" : (node.instance == nil ? "folder" : "cube")
+                        )
+                        .lineLimit(1).help(node.name).tag(node.id)
                     }
                 }.listStyle(.sidebar)
             }
@@ -153,7 +166,11 @@ struct ContentView: View {
                 Section("选中节点") {
                     if let node = selectedNode {
                         Text(node.name).font(.headline).textSelection(.enabled)
-                        if let index = node.instance, model.sceneSnapshot.instances.indices.contains(index) {
+                        if let id = node.light {
+                            LightInspector(model: model, lightID: id)
+                        } else if let index = node.instance,
+                            model.sceneSnapshot.instances.indices.contains(index)
+                        {
                             let instance = model.sceneSnapshot.instances[index]
                             let mesh = model.sceneSnapshot.meshes[instance.mesh]
                             LabeledContent("类型", value: "网格实例")

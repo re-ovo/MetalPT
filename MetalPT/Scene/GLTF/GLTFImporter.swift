@@ -8,7 +8,7 @@ nonisolated struct GLTFImporter {
 
     static let supportedExtensions: Set<String> = [
         "KHR_texture_transform", "KHR_materials_emissive_strength", "KHR_materials_transmission",
-        "KHR_materials_pbrSpecularGlossiness",
+        "KHR_materials_pbrSpecularGlossiness", "KHR_lights_punctual",
     ]
     func load(reportWarning: (String) -> Void = { _ in }, checkCancellation: () throws -> Void = {}) throws
         -> SceneDescription
@@ -215,8 +215,9 @@ nonisolated struct GLTFImporter {
             let children = Set(nodes.flatMap { $0.children ?? [] })
             roots = nodes.indices.filter { !children.contains($0) }
         }
+        var importedLights: [ScenePunctualLight] = []
         var visited = Set<Int>()
-        func append(_ index: Int, parent: NodeID?, depth: Int) throws {
+        func append(_ index: Int, parent: NodeID?, world: simd_float4x4, depth: Int) throws {
             guard depth < 256, visited.insert(index).inserted else { throw RenderFailure("节点形成环、重复引用或层级过深") }
             let node = try nodes.gltfElement(index, "node")
             guard node.skin == nil else { throw RenderFailure("暂不支持蒙皮模型") }
@@ -225,12 +226,52 @@ nonisolated struct GLTFImporter {
                 .init(
                     name: node.name ?? "Node \(index)", parent: parent, mesh: mesh,
                     materials: node.mesh.map { slots[$0] } ?? []))
-            try graph.setTransform(try transform(node), for: id)
-            for child in node.children ?? [] { try append(child, parent: id, depth: depth + 1) }
+            let local = try transform(node)
+            let world = world * local
+            try graph.setTransform(local, for: id)
+            if let reference = node.extensions?.KHR_lights_punctual {
+                let source = try (document.extensions?.KHR_lights_punctual?.lights ?? [])
+                    .gltfElement(reference.light, "light")
+                let kind: ScenePunctualLight.Kind
+                switch source.type {
+                case "point": kind = .point
+                case "spot": kind = .spot
+                case "directional": kind = .directional
+                default: throw RenderFailure("未知灯光类型：\(source.type)")
+                }
+                let color = source.color ?? [1, 1, 1]
+                guard color.count == 3, source.range.map({ $0.isFinite && $0 > 0 }) ?? true,
+                    kind != .spot || source.spot != nil
+                else { throw RenderFailure("glTF 灯光参数无效") }
+                var light = ScenePunctualLight(
+                    id: id, name: node.name ?? source.name ?? "Light \(reference.light)", kind: kind)
+                light.position = world.columns.3.xyz
+                light.direction = kind == .point ? [0, -1, 0] : -(world * SIMD4<Float>(0, 0, 1, 0)).xyz
+                light.color = SIMD3(color[0], color[1], color[2])
+                light.intensity = source.intensity ?? 1
+                light.range = kind == .directional ? 0 : source.range ?? 0
+                light.innerAngle = source.spot?.innerConeAngle ?? 0
+                light.outerAngle = source.spot?.outerConeAngle ?? .pi / 4
+                try light.validate()
+                light.direction = simd_normalize(light.direction)
+                importedLights.append(light)
+            }
+            for child in node.children ?? [] { try append(child, parent: id, world: world, depth: depth + 1) }
         }
-        for root in roots { try append(root, parent: nil, depth: 0) }
+        for root in roots { try append(root, parent: nil, world: matrix_identity_float4x4, depth: 0) }
         try checkCancellation()
-        let result = try graph.compile()
+        var result = try graph.compile()
+        result.punctualLights = importedLights
+        let lightNames = Dictionary(uniqueKeysWithValues: importedLights.map { ($0.id, $0.name) })
+        func attach(_ nodes: [SceneTreeNode]) -> [SceneTreeNode] {
+            nodes.map { node in
+                var node = node
+                if let name = lightNames[node.id] { node.light = node.id; node.name = name }
+                node.children = node.children.map { attach($0) }
+                return node
+            }
+        }
+        result.hierarchy = attach(result.hierarchy)
         guard !result.instances.isEmpty else { throw RenderFailure("场景没有可渲染的三角形实例") }
         if invalidTangents > 0 {
             reportWarning("已忽略 \(invalidTangents) 条无效切线，受影响三角形改用 UV 重建切线空间")

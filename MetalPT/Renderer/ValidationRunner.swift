@@ -156,6 +156,7 @@ enum ValidationRunner {
             report["engineChecks"] = try await EngineValidation.run(renderer, output: output)
             report["surfaceAssets"] = try await SurfaceAssetValidation.run(
                 renderer, output: output, folder: folder)
+            report["analyticLights"] = try await LightValidation.run(renderer, output: output, folder: folder)
             report["passed"] = true
             try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]).write(
                 to: folder.appendingPathComponent("report.json"))

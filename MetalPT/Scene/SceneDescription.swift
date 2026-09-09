@@ -22,11 +22,13 @@ nonisolated struct SceneTreeNode: Identifiable {
     var id = NodeID()
     var name: String
     var instance: Int?
+    var light: NodeID?
     var children: [SceneTreeNode]?
 }
 
 nonisolated struct SceneDescription {
     var hierarchy: [SceneTreeNode] = []
+    var punctualLights: [ScenePunctualLight] = []
     var meshes: [SceneMesh] = []
     var instances: [SceneInstance] = []
     var materials: [SceneMaterial] = []
@@ -47,6 +49,10 @@ nonisolated struct SceneDescription {
     }
 
     func validate() throws {
+        for light in punctualLights { try light.validate() }
+        guard Set(punctualLights.map(\.id)).count == punctualLights.count else {
+            throw RenderFailure("灯光 ID 重复")
+        }
         guard !textures.isEmpty else {
             throw RenderFailure("场景缺少默认纹理")
         }

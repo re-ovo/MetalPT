@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 
 @Observable final class RenderModel {
@@ -19,6 +20,24 @@ import Observation
     var movementSpeed: Float = 1.5
     var navigating = false
     var camera = FPSCamera()
+    func addLight(_ kind: ScenePunctualLight.Kind) {
+        var light = ScenePunctualLight(
+            name: "\(kind.title) \(sceneSnapshot.punctualLights.count + 1)", kind: kind)
+        light.position = camera.position
+        light.direction = camera.forward
+        light.intensity = kind == .directional ? 2 : 20
+        setLights(sceneSnapshot.punctualLights + [light])
+        selectedNode = light.id
+    }
+    func setLights(_ lights: [ScenePunctualLight]) {
+        do {
+            guard let renderer = importer.renderer else { throw RenderFailure("渲染器尚未就绪") }
+            try renderer.updatePunctualLights(lights)
+            importer.error = nil
+        } catch {
+            importer.error = error.localizedDescription
+        }
+    }
     func resetCamera() {
         camera = FPSCamera()
         resetToken += 1
