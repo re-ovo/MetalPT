@@ -25,7 +25,15 @@ inline bool ownsBoundary(constant PTScene &s, uint instanceID, uint primitiveID,
            (bary.z != 0 || orderedEndpoint(a, b));
 }
 
-inline PTHit traceSurface(constant PTScene &s, ray r, uint seed) {
+enum class SurfaceTraceMode {
+    stochasticCoverage,
+    denoiseGuide
+};
+
+inline PTHit traceSurface(constant PTScene &s,
+                          ray r,
+                          uint seed,
+                          SurfaceTraceMode mode = SurfaceTraceMode::stochasticCoverage) {
     intersection_params params;
     params.assume_geometry_type(geometry_type::triangle);
     params.force_opacity(forced_opacity::non_opaque);
@@ -44,7 +52,11 @@ inline PTHit traceSurface(constant PTScene &s, ray r, uint seed) {
         float coverage = surfaceCoverage(s, material, candidate);
         // Per-face random decisions are independent of hardware traversal order.
         uint rng = seed ^ (instance * 0x9e3779b9u) ^ (primitive * 0x85ebca6bu);
-        if (acceptsSide(material, candidate) && (coverage == 1 || (coverage > 0 && random(rng) < coverage)))
+        // Guides must see nonzero BLEND foreground consistently; transport retains stochastic coverage.
+        bool accepted = mode == SurfaceTraceMode::denoiseGuide
+                            ? coverage > 0
+                            : (coverage == 1 || (coverage > 0 && random(rng) < coverage));
+        if (acceptsSide(material, candidate) && accepted)
             query.commit_triangle_intersection();
     }
     PTHit hit = {};

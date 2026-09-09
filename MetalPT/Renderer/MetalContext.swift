@@ -31,7 +31,8 @@ final class MetalContext {
         for name in [
             "initialize", "prepareBounce", "intersectPaths", "shadePaths", "prepareShadow", "traceShadows",
             "finishBounce", "accumulate", "displayImage", "validateRGB", "validateSurfaceAssets",
-            "validateCoverage", "validateTransmission", "validateVNDF",
+            "validateCoverage", "validateTransmission", "validateVNDF", "denoiseGuides", "spatialDenoise",
+            "validateDenoiseGuide",
         ] {
             let f = MTL4LibraryFunctionDescriptor()
             f.library = l
@@ -43,7 +44,7 @@ final class MetalContext {
         }
         precondition(MemoryLayout<PTVertex>.stride == 96 && MemoryLayout<PTMaterial>.stride == 432)
         precondition(MemoryLayout<PTPath>.stride == 80 && MemoryLayout<PTFrame>.stride == 112)
-        precondition(MemoryLayout<PTScene>.stride == 80 && MemoryLayout<PTWork>.stride == 64)
+        precondition(MemoryLayout<PTScene>.stride == 80 && MemoryLayout<PTWork>.stride == 104)
     }
     func buffer(_ length: Int, _ label: String, shared: Bool = false) throws -> MTLBuffer {
         guard

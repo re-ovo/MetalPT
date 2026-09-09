@@ -72,7 +72,11 @@ import Metal
             ac.barriers[1]!.from == .accelerationStructure && ac.barriers[1]!.to == .dispatch,
             "AS stage transition")
         require(MemoryLayout<PTPath>.stride == 80 && MemoryLayout<PTFrame>.stride == 112, "shared ABI")
-        require(MemoryLayout<PTScene>.stride == 80 && MemoryLayout<PTWork>.stride == 64, "bindless root ABI")
+        require(
+            MemoryLayout<PTWork>.offset(of: \.normalDepth) == 64
+                && MemoryLayout<PTWork>.offset(of: \.filterOutput) == 88
+                && MemoryLayout<PTWork>.offset(of: \.geometricNormal) == 96, "Denoise work ABI offsets")
+        require(MemoryLayout<PTScene>.stride == 80 && MemoryLayout<PTWork>.stride == 104, "bindless root ABI")
         require(
             MemoryLayout<PTMesh>.stride == 16 && MemoryLayout<PTInstance>.stride == 96, "mesh/instance ABI")
         require(

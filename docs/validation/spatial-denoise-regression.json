@@ -1,0 +1,262 @@
+{
+  "analyticLights" : {
+    "directional" : 0.31830987334251404,
+    "directionalShadow" : 0,
+    "lightEditsPreserveGeometry" : true,
+    "outsideCone" : 0,
+    "passed" : true,
+    "pointFar" : 0.079576931893825531,
+    "pointNear" : 0.31830134987831116,
+    "pointShadow" : 0,
+    "rangeCutoff" : 0,
+    "spotCenter" : 0.31828191876411438
+  },
+  "blackScenePassed" : true,
+  "cornell" : {
+    "litFraction" : 0.97923177083333335,
+    "meanRGB" : 0.35780589596949891
+  },
+  "cornellGPUms" : 12.244374956935644,
+  "cornellGPUmsStatistic" : "median, excluding first 4 frames",
+  "device" : "Apple M4",
+  "engineChecks" : {
+    "emitterContracts" : true,
+    "emptyScene" : true,
+    "graphCacheHits" : 57,
+    "incrementalBLAS" : true,
+    "instancedVsBakedDifference" : 0,
+    "lightCount" : 2,
+    "materialSlots" : true,
+    "passBindingContracts" : true,
+    "passed" : true,
+    "sceneHierarchy" : true,
+    "sharedMeshInstances" : 2,
+    "textureSlots" : 3
+  },
+  "frameResources" : {
+    "cachedBytes" : 45369856,
+    "graphCacheHits" : 38,
+    "graphCacheMisses" : 7,
+    "instanceCount" : 5,
+    "liveResources" : 42,
+    "meshCount" : 5,
+    "reusedBLASCount" : 0
+  },
+  "output" : "640x480",
+  "passed" : true,
+  "prism" : {
+    "litFraction" : 0.9877604166666667,
+    "meanRGB" : 0.49892284517973856
+  },
+  "prismGPUms" : 10.798249859362841,
+  "prismGPUmsStatistic" : "median, excluding first 4 frames",
+  "render" : "320x240",
+  "rgbChecks" : [
+    [
+      0.20000000298023224,
+      0.5,
+      0.80000001192092896,
+      0
+    ],
+    [
+      1,
+      0.040000002831220627,
+      0,
+      0
+    ],
+    [
+      1,
+      0.70999997854232788,
+      0.28999999165534973,
+      0
+    ],
+    [
+      1.0000001192092896,
+      0,
+      0,
+      0
+    ]
+  ],
+  "spatialDenoise" : {
+    "filteredDisplayMSE" : 0.0041584231091647099,
+    "inputSPP" : 8,
+    "passed" : true,
+    "pausedToggleAndCameraReset" : true,
+    "preservesAccumulation" : true,
+    "rawDisplayMSE" : 0.010257927439715863,
+    "referenceSPP" : 256
+  },
+  "spp" : 16,
+  "surfaceAssets" : {
+    "coverage" : [
+      [
+        1,
+        0,
+        0.25,
+        0.5
+      ],
+      [
+        0,
+        1,
+        0,
+        0
+      ],
+      [
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        0.74560546875,
+        0,
+        0,
+        0
+      ]
+    ],
+    "gallerySPP" : 32,
+    "ggxVNDF" : [
+      [
+        0.84795838594436646,
+        0.84376829862594604,
+        0.99999874830245972,
+        28.504940032958984
+      ],
+      [
+        0.047687884420156479,
+        2.9466991424560547,
+        0,
+        0
+      ],
+      [
+        0.9824066162109375,
+        0.98207652568817139,
+        -0.00076635030563920736,
+        -0.00076144636841490865
+      ],
+      [
+        0.9850616455078125,
+        0.98476618528366089,
+        -9.9038079497404397e-05,
+        0.0007155124912969768
+      ],
+      [
+        0,
+        1,
+        0,
+        0
+      ]
+    ],
+    "normalFrames" : true,
+    "passed" : true,
+    "samplers" : true,
+    "sampleVsPDF" : [
+      [
+        0.96990966796875,
+        0.970589280128479
+      ],
+      [
+        0.95404052734375,
+        0.95588219165802002
+      ],
+      [
+        0.939208984375,
+        0.9411766529083252
+      ]
+    ],
+    "sgCoverage" : [
+      [
+        1,
+        0,
+        0.25,
+        0.5
+      ],
+      [
+        0,
+        1,
+        0,
+        0
+      ],
+      [
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        0.74560546875,
+        0,
+        0,
+        0
+      ]
+    ],
+    "specularGlossiness" : [
+      [
+        0.043174605816602707,
+        0.020512821152806282,
+        0.31633701920509338,
+        0.59843134880065918
+      ],
+      [
+        0.059033762663602829,
+        0.010517893359065056,
+        0.072089307010173798,
+        0.17568628489971161
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0.095134839415550232,
+        0.027615845203399658,
+        0.33481982350349426,
+        8.5148110784416531e-09
+      ],
+      [
+        0.90924072265625,
+        0.9074246883392334,
+        0,
+        0
+      ]
+    ],
+    "stableTextureBindings" : true,
+    "textureViews" : true,
+    "unifiedGlass" : [
+      [
+        0.042236328125,
+        0,
+        0,
+        0
+      ],
+      [
+        1,
+        1,
+        0,
+        1
+      ]
+    ],
+    "whiteFurnace" : [
+      [
+        0.80202138423919678,
+        0.80202138423919678,
+        0.80202138423919678,
+        0
+      ],
+      [
+        0.61542052030563354,
+        0.61542052030563354,
+        0.61542052030563354,
+        0
+      ],
+      [
+        0.73114848136901855,
+        0.73114848136901855,
+        0.73114848136901855,
+        0
+      ]
+    ]
+  }
+}

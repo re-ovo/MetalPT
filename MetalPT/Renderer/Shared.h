@@ -67,7 +67,7 @@ typedef struct {
     PTFloat4 eye, right, up, forward;
     PTUInt4 size;     // width, height, sample index, bounce
     PTUInt4 settings; // max depth, reset, reserved, seed
-    PTFloat4 display; // exposure, reserved, reserved, validation mode
+    PTFloat4 display; // exposure, spatial denoise strength, denoise enabled, validation mode
 } PTFrame;
 
 typedef struct {
@@ -122,6 +122,11 @@ typedef struct {
     uint64_t counts;
 #endif
     PT_PTR(unsigned int) indirect;
+    PT_PTR(PTFloat4) normalDepth; // primary shading normal + camera-space depth (0 = miss)
+    PT_PTR(PTFloat4) albedoGuide; // linear base color + roughness (-1 = preserve original)
+    PT_PTR(PTFloat4) filterInput;
+    PT_PTR(PTFloat4) filterOutput;
+    PT_PTR(PTFloat4) geometricNormal; // geometric plane normal; distinct from normal-mapped shading normal
 } PTWork;
 #ifndef __METAL_VERSION__
 _Static_assert(sizeof(PTTextureBinding) == 48, "texture binding ABI");
@@ -132,7 +137,7 @@ _Static_assert(sizeof(PTMaterial) == 432, "material ABI");
 _Static_assert(sizeof(PTPath) == 80, "path ABI");
 _Static_assert(sizeof(PTFrame) == 112, "frame ABI");
 _Static_assert(sizeof(PTScene) == 80, "scene ABI");
-_Static_assert(sizeof(PTWork) == 64, "work ABI");
+_Static_assert(sizeof(PTWork) == 104, "work ABI");
 _Static_assert(sizeof(PTMesh) == 16, "mesh ABI");
 _Static_assert(sizeof(PTInstance) == 96, "instance ABI");
 _Static_assert(sizeof(PTLight) == 80, "light ABI");

@@ -3,6 +3,7 @@ import Metal
 /// Immutable CPU settings for one sample; each bounce receives its own constants.
 struct FrameParameters {
     var constants: PTFrame
+    var denoiseEnabled: Bool { constants.display.z != 0 }
     var maxDepth: Int {
         Int(constants.settings.x)
     }
@@ -19,7 +20,9 @@ struct FrameParameters {
         model.camera.fill(&constants, aspect: Float(width) / Float(height))
         constants.size = [UInt32(width), UInt32(height), sampleIndex, 0]
         constants.settings = [UInt32(model.maxDepth), reset ? 1 : 0, 0, 0x1234_5678]
-        constants.display = [model.exposure, 0, 0, validationMode]
+        constants.display = [
+            model.exposure, model.denoiseStrength, model.denoiseEnabled ? 1 : 0, validationMode,
+        ]
     }
 }
 
@@ -28,6 +31,10 @@ final class FrameResources {
     struct Handles {
         let pathA, pathB, hits, shadows, sample, counts, indirect: RenderGraph.Resource
     }
+    struct DenoiseHandles {
+        let normalDepth, geometricNormal, albedo, a, b: RenderGraph.Resource
+    }
+    let denoise: DenoiseHandles?
     let graph = RenderGraph()
     let parameters: FrameParameters
     let handles: Handles
@@ -73,6 +80,17 @@ final class FrameResources {
             sample: try buffer(slot.resourceKeys.sample, "Sample RGB", n * 16, shared: true),
             counts: try buffer(slot.resourceKeys.counts, "Queue counters", 32, shared: true),
             indirect: try buffer(slot.resourceKeys.indirect, "Indirect dispatch", 32))
+        if parameters.denoiseEnabled {
+            denoise = DenoiseHandles(
+                normalDepth: try buffer(slot.resourceKeys.normalDepth, "Denoise normal depth", n * 16),
+                geometricNormal: try buffer(
+                    slot.resourceKeys.geometricNormal, "Denoise geometric normal", n * 16),
+                albedo: try buffer(slot.resourceKeys.albedoGuide, "Denoise albedo", n * 16),
+                a: try buffer(slot.resourceKeys.filterA, "Denoise A", n * 16),
+                b: try buffer(slot.resourceKeys.filterB, "Denoise B", n * 16))
+        } else {
+            denoise = nil
+        }
         self.accumulation = graph.importResource(
             "Persistent RGB", allocation: accumulation, initialized: !parameters.reset)
         self.output = graph.importResource("Drawable", allocation: output, kind: .texture, initialized: false)
@@ -94,7 +112,7 @@ final class FrameResources {
         sceneHandles = imported
         bindings = try ComputeBindings(
             context: context, pool: pool, keys: slot.resourceKeys, parameters: parameters,
-            depth: shouldTrace ? parameters.maxDepth : 1)
+            depth: max(parameters.denoiseEnabled ? 3 : 1, shouldTrace ? parameters.maxDepth : 1))
         bindingResources = bindings.allocations.enumerated().map {
             graph.importResource("Frame binding \($0.offset)", allocation: $0.element)
         }

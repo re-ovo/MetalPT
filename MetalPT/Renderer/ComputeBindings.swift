@@ -17,7 +17,7 @@ final class ComputeBindings {
     ) throws {
         self.context = context
         self.depth = depth
-        capacity = depth * 6 + 3
+        capacity = depth * 6 + 7
         frames = try pool.buffer(keys.constants, label: "Frame constants", length: depth * 256, shared: true)
         arena = try pool.buffer(
             keys.bindings, label: "Pass binding arena", length: capacity * 256, shared: true)
@@ -56,10 +56,10 @@ final class ComputeBindings {
                 var sceneRoot = source.contents().load(as: PTScene.self)
                 sceneRoot.acceleration = try resources.accelerationStructure(acceleration).gpuResourceID._impl
                 withUnsafeBytes(of: &sceneRoot) {
-                    arena.contents().advanced(by: offset + 64).copyMemory(
+                    arena.contents().advanced(by: offset + 128).copyMemory(
                         from: $0.baseAddress!, byteCount: $0.count)
                 }
-                sceneAddress = arena.gpuAddress + UInt64(offset + 64)
+                sceneAddress = arena.gpuAddress + UInt64(offset + 128)
             } else {
                 sceneAddress = source.gpuAddress
             }

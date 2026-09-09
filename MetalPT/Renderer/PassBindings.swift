@@ -4,6 +4,7 @@ import Metal
 struct WorkBindings {
     enum Field: Int, CaseIterable {
         case inputPaths, outputPaths, hits, shadows, radiance, accumulation, counts, indirect
+        case normalDepth, albedoGuide, filterInput, filterOutput, geometricNormal
         var keyPath: WritableKeyPath<PTWork, UInt64> {
             switch self {
             case .inputPaths: return \.inputPaths
@@ -14,6 +15,11 @@ struct WorkBindings {
             case .accumulation: return \.accumulation
             case .counts: return \.counts
             case .indirect: return \.indirect
+            case .normalDepth: return \.normalDepth
+            case .albedoGuide: return \.albedoGuide
+            case .filterInput: return \.filterInput
+            case .filterOutput: return \.filterOutput
+            case .geometricNormal: return \.geometricNormal
             }
         }
     }

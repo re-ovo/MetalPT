@@ -5,6 +5,8 @@ import Observation
     let importer = ModelImportController()
     var scene: DemoScene = .cornell
     var paused = false
+    var denoiseEnabled = true
+    var denoiseStrength: Float = 0.6
     var exposure: Float = 0
     var scale: Float = 0.5
     var maxDepth = 8

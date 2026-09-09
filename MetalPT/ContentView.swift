@@ -186,6 +186,12 @@ struct ContentView: View {
                     }
                 }
                 Section("渲染") {
+                    Toggle("空间降噪", isOn: $model.denoiseEnabled)
+                    if model.denoiseEnabled {
+                        LabeledContent("降噪强度", value: String(format: "%.1f", model.denoiseStrength))
+                        Slider(value: $model.denoiseStrength, in: 0.1...1.5, step: 0.1)
+                        Text("保留镜面与透明表面的原始细节").font(.caption).foregroundStyle(.secondary)
+                    }
                     Picker("分辨率比例", selection: $model.scale) {
                         Text("25%").tag(Float(0.25))
                         Text("50%").tag(Float(0.5))

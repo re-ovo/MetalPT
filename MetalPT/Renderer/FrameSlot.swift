@@ -7,6 +7,9 @@ final class FrameSlot {
         let pathA = TransientPool.Key(), pathB = TransientPool.Key(), hits = TransientPool.Key()
         let shadows = TransientPool.Key(), sample = TransientPool.Key(), counts = TransientPool.Key()
         let indirect = TransientPool.Key(), display = TransientPool.Key()
+        let geometricNormal = TransientPool.Key()
+        let normalDepth = TransientPool.Key(), albedoGuide = TransientPool.Key()
+        let filterA = TransientPool.Key(), filterB = TransientPool.Key()
         let constants = TransientPool.Key(), bindings = TransientPool.Key()
     }
     let resourceKeys = ResourceKeys()

@@ -5,6 +5,7 @@ import Metal
 /// machine-readable metrics, and exits. No external assets or screenshot permissions.
 enum ValidationRunner {
     static func run(_ renderer: Renderer) async {
+        renderer.model.denoiseEnabled = false  // Existing reference tests inspect unfiltered transport.
         let env = ProcessInfo.processInfo.environment
         let folder = URL(
             fileURLWithPath: env["SPECTRAL_OUTPUT"] ?? "/tmp/MetalPT-validation", isDirectory: true)
@@ -157,6 +158,8 @@ enum ValidationRunner {
             report["surfaceAssets"] = try await SurfaceAssetValidation.run(
                 renderer, output: output, folder: folder)
             report["analyticLights"] = try await LightValidation.run(renderer, output: output, folder: folder)
+            report["spatialDenoise"] = try await DenoiseValidation.run(
+                renderer, output: output, folder: folder)
             report["passed"] = true
             try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]).write(
                 to: folder.appendingPathComponent("report.json"))

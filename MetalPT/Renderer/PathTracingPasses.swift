@@ -60,9 +60,20 @@ enum PathTracingPasses {
                 resources: .init(sample: h.sample, accumulation: frame.accumulation, counts: h.counts),
                 pixels: frame.parameters.pixelCount)
         }
+        var displaySource = frame.accumulation
+        if let denoise = frame.denoise {
+            SpatialDenoisePass.add(
+                to: graph, compute: compute,
+                resources: .init(
+                    source: frame.accumulation, normalDepth: denoise.normalDepth,
+                    geometricNormal: denoise.geometricNormal, albedo: denoise.albedo, a: denoise.a,
+                    b: denoise.b,
+                    scene: geometry), pixels: frame.parameters.pixelCount)
+            displaySource = denoise.a
+        }
         DisplayPass.add(
             to: graph, compute: compute,
-            resources: .init(accumulation: frame.accumulation, output: frame.displayColor))
+            resources: .init(accumulation: displaySource, output: frame.displayColor))
         PresentPass.add(to: graph, source: frame.displayColor, destination: frame.output)
     }
 }
