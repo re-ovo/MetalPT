@@ -23,6 +23,9 @@ enum SceneGraphTests {
         transform.columns.3.x = 2
         try graph.setTransform(transform, for: parent)
         let compiled = try graph.compile()
+        precondition(compiled.hierarchy.map(\.name) == ["group", "sibling"], "Outliner root order")
+        precondition(compiled.hierarchy[0].children?.first?.id == child, "Outliner stable node ID")
+        precondition(compiled.hierarchy[0].children?.first?.instance == 0, "Outliner instance mapping")
         precondition(compiled.instances[0].transform.columns.3.x == 2, "Parent transform propagation")
         precondition(compiled.instances[0].materials == [0, 1], "Local material slots")
         _ = try graph.compile()
@@ -37,6 +40,9 @@ enum SceneGraphTests {
         rejects("Hierarchy cycle accepted") { try graph.reparent(parent, to: child) }
         try graph.setVisible(false, for: parent)
         let hidden = try graph.compile()
+        precondition(
+            hidden.hierarchy[0].children?.first?.instance == nil, "Hidden node has no rendered instance")
+        precondition(hidden.hierarchy[1].instance == 0, "Visible instance index is remapped")
         precondition(hidden.instances.count == 1, "Visibility must propagate to descendants")
         try graph.setVisible(true, for: parent)
         try graph.reparent(child, to: nil)

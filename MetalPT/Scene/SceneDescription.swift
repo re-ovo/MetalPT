@@ -17,7 +17,16 @@ nonisolated struct SceneLight {
     var v: SIMD3<Float>
 }
 
+/// CPU-only outliner metadata; instance indices refer to the compiled snapshot.
+nonisolated struct SceneTreeNode: Identifiable {
+    var id = NodeID()
+    var name: String
+    var instance: Int?
+    var children: [SceneTreeNode]?
+}
+
 nonisolated struct SceneDescription {
+    var hierarchy: [SceneTreeNode] = []
     var meshes: [SceneMesh] = []
     var instances: [SceneInstance] = []
     var materials: [SceneMaterial] = []

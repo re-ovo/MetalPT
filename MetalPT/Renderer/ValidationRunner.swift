@@ -128,7 +128,7 @@ enum ValidationRunner {
             renderer.model.paused = false
             for i in 0..<9 {
                 renderer.model.scene = i % 2 == 0 ? .cornell : .prism
-                renderer.model.camera.orbit(8, -3)
+                renderer.model.camera.look(8, -3)
                 let resized = try texture(320 + i * 17, 240 + i * 11)
                 _ = try renderer.render(to: resized)
                 if i % 3 == 2 {

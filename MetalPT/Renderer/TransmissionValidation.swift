@@ -23,8 +23,7 @@ enum TransmissionValidation {
         back.quad([-2, -1, 0], [2, -1, 0], [2, 3, 0], [-2, 3, 0], 0)
         _ = scene.addMesh(back, materials: [1])
         renderer.sceneOverride = scene
-        renderer.model.camera.target = [0, 1, 0]
-        renderer.model.camera.distance = 4
+        renderer.model.camera.position = [0, 1, 4]
         renderer.model.camera.pitch = 0
         renderer.model.maxDepth = 8
         _ = try renderer.render(to: output)

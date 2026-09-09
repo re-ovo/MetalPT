@@ -14,9 +14,13 @@ import Observation
     var gpuName = "Metal 4"
     var error: String?
     var diagnostics = ""
-    var camera = OrbitCamera()
+    var sceneSnapshot = SceneDescription()
+    var selectedNode: NodeID?
+    var movementSpeed: Float = 1.5
+    var navigating = false
+    var camera = FPSCamera()
     func resetCamera() {
-        camera = OrbitCamera()
+        camera = FPSCamera()
         resetToken += 1
     }
 }

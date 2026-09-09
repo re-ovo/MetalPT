@@ -51,17 +51,92 @@ final class InteractiveMetalView: MTKView {
     override func mouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
     }
-    override func mouseDragged(with event: NSEvent) {
-        if event.modifierFlags.contains(.shift) {
-            model?.camera.pan(Float(event.deltaX), Float(event.deltaY))
-        } else {
-            model?.camera.orbit(Float(event.deltaX), Float(event.deltaY))
+    private var keys = Set<UInt16>()
+    private var movementTimer: Timer?
+    private var previousTick = 0.0
+    private var fastMovement = false
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        stopNavigation()
+        NotificationCenter.default.removeObserver(self)
+        if let window {
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(stopNavigation), name: NSWindow.didResignKeyNotification,
+                object: window)
         }
     }
-    override func rightMouseDragged(with event: NSEvent) {
-        model?.camera.pan(Float(event.deltaX), Float(event.deltaY))
+
+    override func resignFirstResponder() -> Bool {
+        stopNavigation()
+        return super.resignFirstResponder()
     }
+
+    override func rightMouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(self)
+        model?.navigating = true
+        fastMovement = event.modifierFlags.contains(.shift)
+        previousTick = ProcessInfo.processInfo.systemUptime
+        movementTimer?.invalidate()
+        let timer = Timer(
+            timeInterval: 1.0 / 60, target: self, selector: #selector(updateMovement),
+            userInfo: nil, repeats: true)
+        movementTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    override func rightMouseDragged(with event: NSEvent) {
+        guard model?.navigating == true else { return }
+        model?.camera.look(Float(event.deltaX), Float(event.deltaY))
+    }
+
+    override func rightMouseUp(with event: NSEvent) { stopNavigation() }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 { stopNavigation(); return }
+        guard model?.navigating == true, [0, 1, 2, 12, 13, 14].contains(event.keyCode),
+            !event.modifierFlags.contains(.command)
+        else {
+            super.keyDown(with: event)
+            return
+        }
+        keys.insert(event.keyCode)
+    }
+
+    override func keyUp(with event: NSEvent) {
+        keys.remove(event.keyCode)
+    }
+
+    override func flagsChanged(with event: NSEvent) {
+        fastMovement = event.modifierFlags.contains(.shift)
+    }
+
+    @objc private func updateMovement() {
+        guard let model, model.navigating, window?.isKeyWindow == true else {
+            stopNavigation()
+            return
+        }
+        let now = ProcessInfo.processInfo.systemUptime
+        let delta = Float(min(now - previousTick, 0.05))
+        previousTick = now
+        func axis(_ positive: UInt16, _ negative: UInt16) -> Float {
+            (keys.contains(positive) ? 1 : 0) - (keys.contains(negative) ? 1 : 0)
+        }
+        model.camera.move(
+            [axis(2, 0), axis(14, 12), axis(13, 1)],
+            distance: delta * model.movementSpeed * (fastMovement ? 4 : 1))
+    }
+
+    @objc private func stopNavigation() {
+        movementTimer?.invalidate()
+        movementTimer = nil
+        keys.removeAll()
+        model?.navigating = false
+    }
+
     override func scrollWheel(with event: NSEvent) {
-        model?.camera.zoom(Float(event.scrollingDeltaY))
+        guard let model else { return }
+        model.movementSpeed = min(
+            20, max(0.05, model.movementSpeed * exp(Float(event.scrollingDeltaY) * 0.02)))
     }
 }

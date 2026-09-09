@@ -11,7 +11,7 @@ enum SurfaceAssetValidation {
             simd_length(a - b) < tolerance
         }
         renderer.sceneGraph = nil
-        renderer.model.camera = OrbitCamera()
+        renderer.model.camera = FPSCamera()
         renderer.model.paused = false
         renderer.model.exposure = 0
         renderer.model.maxDepth = 1

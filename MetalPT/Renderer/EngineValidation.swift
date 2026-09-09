@@ -49,7 +49,7 @@ enum EngineValidation {
         try require(pool.cachedBytes == 0, "Unused pool resources not retired")
 
         try await PassBindingValidation.run(context)
-        renderer.model.camera = OrbitCamera()
+        renderer.model.camera = FPSCamera()
         renderer.model.exposure = 0
         renderer.model.paused = false
         renderer.model.maxDepth = 1

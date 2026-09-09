@@ -17,7 +17,7 @@ final class Renderer: NSObject, MTKViewDelegate {
     private var accumulation: MTLBuffer?
     private var size = SIMD2<Int>(0, 0)
     private var sampleIndex: UInt32 = 0
-    private var previousCamera = OrbitCamera()
+    private var previousCamera = FPSCamera()
     private var previousDepth = 0, previousReset = -1
     private var generation = 0
     private var firstGraphDump = true
@@ -42,6 +42,8 @@ final class Renderer: NSObject, MTKViewDelegate {
         let replacement = try BindlessScene(context, description: description, preparedTextures: textures)
         sceneGraph = nil
         sceneOverride = description
+        model.sceneSnapshot = description
+        model.selectedNode = nil
         scene = replacement
         sceneKind = model.scene
         sceneBuilt = false
@@ -84,6 +86,8 @@ final class Renderer: NSObject, MTKViewDelegate {
                 description = try graph.compile()
             }
             scene = try BindlessScene(context, description: description, reusing: sceneBuilt ? scene : nil)
+            model.sceneSnapshot = description
+            model.selectedNode = nil
             sceneKind = model.scene
             sceneBuilt = false
             reset = true

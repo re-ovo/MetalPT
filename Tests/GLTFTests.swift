@@ -68,6 +68,13 @@ import simd
             assert(checkpoints == 2, "Importer cancellation checkpoint")
         }
         let scene = try load(json)
+        precondition(
+            scene.hierarchy.count == 1 && scene.hierarchy[0].children?.count == 2,
+            "glTF hierarchy preserved in snapshot")
+        let presented = try GLTFPresentation.prepare(scene)
+        precondition(
+            presented.hierarchy[0].id == scene.hierarchy[0].id && presented.hierarchy.count == 3,
+            "Viewer preserves hierarchy and adds light nodes")
         assert(scene.meshes.count == 1 && scene.instances.count == 2, "mesh sharing")
         assert(scene.instances[1].transform.columns.3 == SIMD4<Float>(3, 2, 0, 1), "hierarchy TRS")
         assert(scene.meshes[0].vertices[2].position.y == 1, "interleaved accessor")

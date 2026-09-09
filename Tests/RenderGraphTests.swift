@@ -3,6 +3,7 @@ import Metal
 
 @main struct GraphTests {
     static func main() throws {
+        FPSCameraTests.run()
         try SceneGraphTests.run()
         try SurfaceAssetTests.run()
         func require(_ b: Bool, _ message: String) {

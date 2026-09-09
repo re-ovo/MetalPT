@@ -133,6 +133,7 @@ nonisolated struct SceneGraph {
         result.images = images
         result.samplers = samplers
         transformedNodeCount = 0
+        var instanceIndices: [NodeID: Int] = [:]
         for id in order {
             let node = nodes[id]!
             var ancestor: NodeID? = id
@@ -152,6 +153,7 @@ nonisolated struct SceneGraph {
             }
             guard visible else { continue }
             let instance = result.instances.count
+            instanceIndices[id] = instance
             result.instances.append(SceneInstance(mesh: mesh, transform: world(id), materials: bindings))
             if let emitter = node.emitter {
                 guard bindings.indices.contains(emitter.materialSlot) else {
@@ -163,6 +165,14 @@ nonisolated struct SceneGraph {
                         origin: emitter.origin, u: emitter.u, v: emitter.v))
             }
         }
+        let children = Dictionary(grouping: order, by: { nodes[$0]!.parent })
+        func tree(_ id: NodeID) -> SceneTreeNode {
+            let descendants = (children[id] ?? []).map { tree($0) }
+            return SceneTreeNode(
+                id: id, name: nodes[id]!.name, instance: instanceIndices[id],
+                children: descendants.isEmpty ? nil : descendants)
+        }
+        result.hierarchy = (children[nil] ?? []).map { tree($0) }
         try result.validate()
         return result
     }

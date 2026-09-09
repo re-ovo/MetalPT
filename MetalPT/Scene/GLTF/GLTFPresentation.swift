@@ -44,6 +44,8 @@ nonisolated enum GLTFPresentation {
             var light = SceneMesh()
             light.quad(origin, origin + u, origin + u + v, origin + v, 0)
             let instance = result.addMesh(light, materials: [material])
+            result.hierarchy.append(
+                SceneTreeNode(name: "查看灯光 \(result.lights.count + 1)", instance: instance))
             result.lights.append(
                 SceneLight(instance: instance, material: material, origin: origin, u: u, v: v))
         }
