@@ -9,7 +9,7 @@
 - 内置 Cornell 材质场景与玻璃棱镜场景；支持打开或拖入 glTF / GLB，异步解析、自动取景和查看灯光。
 - 拖动旋转，Shift / 右键拖动平移，滚轮缩放；提供暂停、曝光、分辨率、反弹深度和相机复位。
 - 默认 50% drawable 分辨率、每帧 1 spp、最多 8 次表面交互。相机、场景、尺寸和深度变化重置累积；曝光只改变显示。
-- 漫反射、RGB 黄金、metallic-roughness PBR、固定折射率 1.5 的理想玻璃、附加发光及 glTF 薄表面透射。
+- 漫反射、RGB 黄金、metallic-roughness / specular-glossiness PBR、固定折射率 1.5 的理想玻璃、附加发光及 glTF 薄表面透射。
 - UV0/1、顶点颜色、平滑法线、法线贴图、纹理变换、采样器、mip、单双面及 OPAQUE/MASK/BLEND 覆盖。
 
 模型支持和限制见 [glTF 导入](docs/gltf-import.md)，资产语义见 [表面资产](docs/surface-assets.md)。
@@ -29,7 +29,7 @@ GPU 原子计数器压紧路径和阴影队列，GPU 写入间接 dispatch 参�
 
 材质颜色、发光和路径吞吐量均为线性 RGB。基色/发光图片通过 sRGB 纹理视图解码，数据纹理保持线性。BSDF 计算三个颜色通道，缓冲使用对齐的 float4，第四分量保留为零。FP32 RGB 运行平均经曝光、ACES 风格曲线和一次 sRGB 编码，写入非 sRGB BGRA8 drawable。
 
-漫反射使用 RGB Lambert；PBR 使用 GGX/Smith/Schlick；黄金使用近似 RGB F0=(1, 0.71, 0.29)。玻璃使用固定 IOR=1.5 的 Fresnel、全反射、辐亮度透射 η² 和俄罗斯轮盘 η 补偿。矩形灯使用 NEE、power heuristic MIS 和包含灯光选择概率的 PDF；其他发光几何靠路径命中贡献。
+漫反射使用 RGB Lambert；两种 PBR 工作流经公共表面参数使用 GGX/Smith/Schlick；黄金使用近似 RGB F0=(1, 0.71, 0.29)。玻璃使用固定 IOR=1.5 的 Fresnel、全反射、辐亮度透射 η² 和俄罗斯轮盘 η 补偿。矩形灯使用 NEE、power heuristic MIS 和包含灯光选择概率的 PDF；其他发光几何靠路径命中贡献。
 
 没有波长采样、RGB-to-spectrum、CIE/XYZ 转换、Sellmeier 或色散。没有去噪、专门焦散算法、嵌套介质和体积吸收；有限反弹深度会截断较长路径。glTF transmission 是薄表面透射，厚玻璃 volume/IOR 扩展尚未实现。
 
@@ -41,6 +41,7 @@ GPU 原子计数器压紧路径和阴影队列，GPU 写入间接 dispatch 参�
 - `Renderer/RenderGraph.swift`：依赖检查、拓扑排序、无用 Pass 剔除、RAW/WAR/WAW 屏障、生命周期和编译缓存。
 - `FrameSlot.swift` / `FrameResources.swift`：三个帧槽、延迟分配、描述匹配资源池及 GPU 完成后的复用。
 - `BindlessScene.swift` / `ResourceRegistry.swift`：场景根表、GPU 地址、纹理 ID、AS、间接资源登记和驻留。
+- `Shaders/SurfaceParameters.h`：将材质工作流转换为不含纹理绑定的公共 BSDF 参数。
 - `Shaders/`：采样、BSDF、求交、着色、阴影、队列、累积、显示和生产 GPU 验证。
 - `Renderer/Shared.h`：CPU/GPU ABI，PTPath 和 PTScene 均为 80 字节。
 
@@ -61,6 +62,6 @@ SPECTRAL_SPP=512 scripts/validate-gpu.sh release
 
 为兼容现有脚本，环境变量仍使用 `SPECTRAL_` 前缀。`SPECTRAL_OUTPUT` 指定报告目录，`SPECTRAL_PROFILE=1` 开启逐 Pass GPU 时间戳。Capture 与 Shader Validation 分开运行。
 
-CPU 覆盖图/ABI、场景层级、primitive、图片及 glTF。GPU 覆盖 RGB 通道保持、显示编码、Fresnel/TIR、GGX、黑场、PBR 能量/PDF、纹理/覆盖、透射、资源绑定、BLAS 复用和累积失效。重构后的记录见 [RGB 验证](docs/validation/rgb.md)；其他历史光谱截图和性能不能作为 RGB 基线。
+CPU 覆盖图/ABI、场景层级、primitive、图片及 glTF。GPU 覆盖 RGB 通道保持、显示编码、Fresnel/TIR、GGX、黑场、PBR 能量/PDF、纹理/覆盖、透射、资源绑定、BLAS 复用和累积失效。材质重构记录见 [BSDF 验证](docs/validation/bsdf.md)，RGB 基线见 [RGB 验证](docs/validation/rgb.md)；其他历史光谱截图和性能不能作为 RGB 基线。
 
 历史数据来源与许可保留在 `MetalPT/Resources/NOTICE.md`；当前程序不加载这些数据。

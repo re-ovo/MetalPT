@@ -14,9 +14,10 @@ kernel void shadePaths(constant PTScene &s [[buffer(0)]],
     uint rng = p.state.y;
     PTMaterial m = s.materials[hit.info.x];
     MaterialSample material = sampleMaterial(s, m, hit.uv, hit.color);
+    SurfaceParameters bsdf = prepareBSDF(m, material);
     float3 ng = hit.normal.xyz, geometric = hit.info.z ? ng : -ng, wo = -p.direction.xyz;
     float3 n = hit.info.z ? hit.shadingNormal.xyz : -hit.shadingNormal.xyz;
-    if (dot(n, wo) <= 1e-5f || m.flags.x == 2)
+    if (dot(n, wo) <= 1e-5f || bsdf.kind == BSDFKind::dielectric)
         n = geometric;
     if ((hit.info.z || m.flags.z) && f.display.w != 1 && any(material.emission > 0)) {
         float weight = 1;
@@ -28,10 +29,10 @@ kernel void shadePaths(constant PTScene &s [[buffer(0)]],
         }
         addContribution(w, p.state.x, p.throughput.xyz * material.emission * weight);
     }
-    if (m.flags.x == 3)
+    if (bsdf.kind == BSDFKind::absorbing)
         return;
-    // Next event estimation only for non-delta BSDFs, sampling the ceiling rectangle.
-    if (m.flags.x != 2 && s.counts.w > 0 && f.display.w != 1) {
+    // Next event estimation only for non-delta BSDFs, sampling registered rectangle lights.
+    if (hasContinuousBSDF(bsdf) && s.counts.w > 0 && f.display.w != 1) {
         uint lightIndex = s.counts.w == 1 ? 0 : min(uint(random(rng) * s.counts.w), s.counts.w - 1);
         PTLight light = s.lights[lightIndex];
         PTMaterial emitter = s.materials[light.indices.x];
@@ -46,10 +47,10 @@ kernel void shadePaths(constant PTScene &s [[buffer(0)]],
         float cosSurface = dot(n, wi);
         if (cosLight > 0 && cosSurface * dot(geometric, wi) > 0) {
             float bsdfPDF;
-            float3 bsdf = evaluateBSDF(m, material, n, wo, wi, bsdfPDF);
+            float3 value = evaluateBSDF(bsdf, n, wo, wi, bsdfPDF);
             float lightPDF = dist * dist / (light.normalArea.w * cosLight * float(s.counts.w));
-            float3 contribution =
-                p.throughput.xyz * bsdf * emission * abs(cosSurface) * powerMIS(lightPDF, bsdfPDF) / lightPDF;
+            float3 contribution = p.throughput.xyz * value * emission * abs(cosSurface) *
+                                  powerMIS(lightPDF, bsdfPDF) / lightPDF;
             uint slot = atomic_fetch_add_explicit(w.counts + 2, 1, memory_order_relaxed);
             if (slot < f.size.x * f.size.y) {
                 PTShadow sh;
@@ -65,29 +66,13 @@ kernel void shadePaths(constant PTScene &s [[buffer(0)]],
     }
     if (f.size.w + 1 >= f.settings.x)
         return;
-    float3 wi;
-    float pdf = 1;
-    if (m.flags.x == 2) {
-        const float ior = 1.5f;
-        float etaI = hit.info.z ? 1 : ior, etaT = hit.info.z ? ior : 1, eta = etaI / etaT;
-        float F = dielectricF(dot(n, wo), etaI, etaT);
-        if (random(rng) < F)
-            wi = reflect(-wo, n);
-        else {
-            wi = refract(-wo, n, eta);
-            p.throughput *= eta * eta;
-            p.sampling.y /= (eta * eta);
-        }
-        p.state.w = 1;
-    } else {
-        BSDFSample sampled = sampleSurfaceBSDF(m, material, n, wo, rng);
-        wi = sampled.direction;
-        pdf = sampled.pdf;
-        if (pdf <= 0 || dot(wi, n) * dot(wi, geometric) <= 0)
-            return;
-        p.throughput.xyz *= sampled.weight;
-        p.state.w = sampled.delta ? 1 : 0;
-    }
+    BSDFSample sampled = sampleSurfaceBSDF(bsdf, n, wo, rng, hit.info.z != 0);
+    float3 wi = sampled.direction;
+    if (sampled.pdf <= 0 || dot(wi, n) * dot(wi, geometric) <= 0)
+        return;
+    p.throughput.xyz *= sampled.weight;
+    p.sampling.y /= sampled.eta * sampled.eta;
+    p.state.w = sampled.delta ? 1 : 0;
     if (!all(isfinite(p.throughput)) || !all(isfinite(wi))) {
         atomic_fetch_add_explicit(w.counts + 4, 1, memory_order_relaxed);
         return;
@@ -103,7 +88,7 @@ kernel void shadePaths(constant PTScene &s [[buffer(0)]],
     }
     p.origin = float4(offsetPoint(hit.position.xyz, ng, wi), 0);
     p.direction = float4(normalize(wi), 0);
-    p.sampling.x = pdf;
+    p.sampling.x = sampled.pdf;
     p.state.y = rng;
     uint slot = atomic_fetch_add_explicit(w.counts + 1, 1, memory_order_relaxed);
     if (slot < f.size.x * f.size.y)

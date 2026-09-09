@@ -39,7 +39,12 @@ enum SurfaceAssetValidation {
         var mapped = material
         mapped.id = MaterialID()
         mapped.normalTexture = .init(texture: scene.textures[2].id)
-        scene.materials = [material, mapped]
+        let specularGlossiness = SceneMaterial(
+            surface: .specularGlossiness(
+                diffuse: [0.8, 0.6, 0.4, 0.7], specular: [0.2, 0.4, 0.6], glossiness: 0.8),
+            baseColorTexture: .init(texture: scene.textures[1].id),
+            specularGlossinessTexture: .init(texture: scene.textures[1].id))
+        scene.materials = [material, mapped, specularGlossiness]
         var mesh = SceneMesh()
         let vertices = [SIMD3<Float>(-0.5, -0.5, 0), [0.5, -0.5, 0], [0.5, 0.5, 0], [-0.5, 0.5, 0]]
             .enumerated().map { i, p in
@@ -67,7 +72,7 @@ enum SurfaceAssetValidation {
         renderer.sceneOverride = scene
         _ = try renderer.render(to: output)
         await renderer.waitForGPU()
-        let values = try await renderer.validateNumerics(kernel: "validateSurfaceAssets", count: 26)
+        let values = try await renderer.validateNumerics(kernel: "validateSurfaceAssets", count: 33)
         try require(
             values.allSatisfy { $0.x.isFinite && $0.y.isFinite && $0.z.isFinite && $0.w.isFinite },
             "Surface validation produced nonfinite values")
@@ -113,6 +118,24 @@ enum SurfaceAssetValidation {
 
         try require(
             close(values[25], SIMD4(0.8, 0.8, 0.8, 0), tolerance: 0.02), "Zero roughness PBR became unstable")
+        let expectedF0 = color.xyz * SIMD3<Float>(0.2, 0.4, 0.6)
+        let expectedDiffuse = color.xyz * SIMD3<Float>(0.8, 0.6, 0.4) * 0.5 * (1 - expectedF0.max())
+        try require(
+            close(values[26], SIMD4(expectedF0, 1 - 0.8 * linear.w)),
+            "SG specular must decode sRGB while glossiness alpha remains linear")
+        try require(
+            close(values[27], SIMD4(expectedDiffuse, 0.7 * 0.5 * linear.w)),
+            "SG diffuse energy/vertex color/coverage parameters failed")
+        try require(values[28].max() < 0.00001, "SG reciprocity failed")
+        try require(
+            values[29].xyz.min() > 0 && values[29].xyz.max() < 1.025 && values[29].w < 0.00001,
+            "SG furnace or eval/sample weighting failed")
+        try require(abs(values[30].x - values[30].y) < 0.02, "SG mixture PDF does not match samples")
+        try require(
+            abs(values[31].x - 0.04) < 0.005 && values[31].y < 0.00001 && values[31].z < 0.00001
+                && values[31].w == 0,
+            "Unified glass sampling lost Fresnel probabilities, eta compensation or event flags")
+        try require(close(values[32], [1, 1, 0, 1]), "Unified glass sampling lost total internal reflection")
         var reordered = scene
         reordered.materials[0].baseColorTexture!.sampler = scene.samplers[2].id
         reordered.textures = [scene.textures[0], scene.textures[2], scene.textures[1]]
@@ -120,7 +143,7 @@ enum SurfaceAssetValidation {
         renderer.sceneOverride = reordered
         _ = try renderer.render(to: output)
         await renderer.waitForGPU()
-        let remapped = try await renderer.validateNumerics(kernel: "validateSurfaceAssets", count: 26)
+        let remapped = try await renderer.validateNumerics(kernel: "validateSurfaceAssets", count: 33)
         try require(
             close(remapped[0], color) && close(remapped[4], [1, 0, 0, 1]),
             "Texture/sampler IDs did not survive table reorder")
@@ -157,6 +180,20 @@ enum SurfaceAssetValidation {
             "Ray/shadow sidedness differs")
         try require(abs(alpha[3].x - 0.75) < 0.03, "Stochastic BLEND coverage is biased")
 
+        // Exercise the same traversal with SG diffuse alpha, including shared-edge ownership.
+        for index in coverage.materials.indices {
+            let diffuse = coverage.materials[index].color
+            coverage.materials[index].surface = .specularGlossiness(
+                diffuse: diffuse, specular: [0.04, 0.04, 0.04], glossiness: 0.5)
+        }
+        renderer.sceneOverride = coverage
+        _ = try renderer.render(to: output)
+        await renderer.waitForGPU()
+        let sgAlpha = try await renderer.validateNumerics(kernel: "validateCoverage", count: 4)
+        try require(
+            zip(alpha, sgAlpha).allSatisfy { close($0.0, $0.1) },
+            "SG diffuse alpha must preserve MASK/BLEND primary and shadow coverage")
+
         var gallery = ProceduralScene(kind: .cornell).description
         gallery.images = [normal]
         gallery.textures.append(.init(source: .image(normal.id)))
@@ -173,10 +210,24 @@ enum SurfaceAssetValidation {
             if let error = renderer.model.error { throw RenderFailure(error) }
         }
         _ = try ValidationRunner.save(output, to: folder.appendingPathComponent("surface-pbr.png"))
+        gallery.materials[3].surface = .specularGlossiness(
+            diffuse: [0.15, 0.4, 0.7, 1], specular: [0.15, 0.3, 0.6], glossiness: 0.7)
+        gallery.materials[4].surface = .specularGlossiness(
+            diffuse: [0.8, 0.15, 0.05, 1], specular: [0.04, 0.04, 0.04], glossiness: 0.4)
+        renderer.sceneOverride = gallery
+        for _ in 0..<32 {
+            _ = try renderer.render(to: output)
+            await renderer.waitForGPU()
+            if let error = renderer.model.error { throw RenderFailure(error) }
+        }
+        _ = try ValidationRunner.save(output, to: folder.appendingPathComponent("surface-sg.png"))
         renderer.sceneOverride = nil
         return [
+            "specularGlossiness": values[26...30].map { [$0.x, $0.y, $0.z, $0.w] },
+            "unifiedGlass": values[31...32].map { [$0.x, $0.y, $0.z, $0.w] },
             "passed": true, "textureViews": true, "stableTextureBindings": true, "samplers": true,
             "normalFrames": true,
+            "sgCoverage": sgAlpha.map { [$0.x, $0.y, $0.z, $0.w] },
             "coverage": alpha.map { [$0.x, $0.y, $0.z, $0.w] },
             "whiteFurnace": values[15...17].map { [$0.x, $0.y, $0.z, $0.w] },
             "sampleVsPDF": values[18...20].map { [$0.x, $0.y] }, "gallerySPP": 32,

@@ -18,7 +18,7 @@ kernel void validateTransmission(constant PTScene &s [[buffer(0)]],
         float3 energy = 0;
         float transmitted = 0, valid = 0, integratedPDF = 0;
         for (uint i = 0; i < 32768; ++i) {
-            BSDFSample sample = sampleSurfaceBSDF(m, material, n, n, rng);
+            BSDFSample sample = sampleSurfaceBSDF(prepareBSDF(m, material), n, n, rng);
             if (sample.pdf > 0) {
                 energy += sample.weight;
                 valid += 1;
@@ -27,8 +27,8 @@ kernel void validateTransmission(constant PTScene &s [[buffer(0)]],
             if (test == 3) {
                 float z = (float(i) + 0.5f) / 32768, pdfA, pdfB;
                 float3 wi = float3(sqrt(1 - z * z), 0, z);
-                evaluateBSDF(m, material, n, n, wi, pdfA);
-                evaluateBSDF(m, material, n, n, -wi, pdfB);
+                evaluateBSDF(prepareBSDF(m, material), n, n, wi, pdfA);
+                evaluateBSDF(prepareBSDF(m, material), n, n, -wi, pdfB);
                 integratedPDF += (pdfA + pdfB) * 2 * PI;
             }
         }

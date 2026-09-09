@@ -9,14 +9,24 @@ enum SurfaceAssetTests {
             do { try work(); preconditionFailure(message) } catch {}
         }
         precondition(
-            MemoryLayout<PTVertex>.stride == 96 && MemoryLayout<PTMaterial>.stride == 368,
+            MemoryLayout<PTVertex>.stride == 96 && MemoryLayout<PTMaterial>.stride == 432,
             "Vertex/material ABI")
         precondition(
             MemoryLayout<PTHit>.stride == 112 && MemoryLayout<PTTextureBinding>.stride == 48,
             "Hit/binding ABI")
         precondition(
-            MemoryLayout<PTMaterial>.offset(of: \.transmissionTexture) == 320,
+            MemoryLayout<PTMaterial>.offset(of: \.transmissionTexture) == 336,
             "Transmission binding ABI offset")
+        precondition(
+            MemoryLayout<PTMaterial>.offset(of: \.specularGlossiness) == 16
+                && MemoryLayout<PTMaterial>.offset(of: \.specularGlossinessTexture) == 384,
+            "Specular-glossiness ABI offsets")
+        for specular: SIMD3<Float> in [[-0.1, 0, 0], [0, 1.1, 0], [.nan, 0, 0]] {
+            let invalid = SceneMaterial(
+                surface: .specularGlossiness(
+                    diffuse: SIMD4(repeating: 1), specular: specular, glossiness: 0.5))
+            rejects("Invalid SG reflectance accepted") { try invalid.validate(samplers: []) }
+        }
         var invalidTransmission = SceneMaterial()
         invalidTransmission.transmissionFactor = 1.1
         rejects("Out-of-range transmission accepted") {

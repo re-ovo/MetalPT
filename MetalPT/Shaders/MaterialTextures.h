@@ -22,6 +22,7 @@ inline float4 sampleTexture(constant PTScene &scene, PTTextureBinding binding, f
 struct MaterialSample {
     float4 baseColor;
     float3 emission;
+    float3 specular;
     float metallic, roughness, occlusion, transmission;
 };
 
@@ -31,6 +32,13 @@ inline MaterialSample sampleMaterial(constant PTScene &scene, PTMaterial m, floa
     float4 mr = sampleTexture(scene, m.metallicRoughnessTexture, uv, false);
     result.metallic = clamp(m.optics.y * mr.b, 0.0f, 1.0f);
     result.roughness = clamp(m.optics.x * mr.g, 0.0f, 1.0f);
+    result.specular = mix(float3(0.04f), result.baseColor.xyz, result.metallic);
+    if (m.flags.x == 5) {
+        // sRGB RGB is decoded once; alpha remains linear glossiness.
+        float4 sg = sampleTexture(scene, m.specularGlossinessTexture, uv, true);
+        result.specular = clamp(m.specularGlossiness.xyz * sg.xyz, 0.0f, 1.0f);
+        result.roughness = 1 - clamp(m.specularGlossiness.w * sg.a, 0.0f, 1.0f);
+    }
     result.transmission =
         clamp(m.coverage.y * sampleTexture(scene, m.transmissionTexture, uv, false).r, 0.0f, 1.0f);
     result.emission = m.emission.xyz * m.emission.w * sampleTexture(scene, m.emissiveTexture, uv, true).xyz;

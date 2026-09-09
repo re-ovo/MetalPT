@@ -6,11 +6,12 @@ nonisolated struct GLTFImporter {
     let container: GLTFContainer
     var document: GLTFDocument { container.document }
 
+    static let supportedExtensions: Set<String> = [
+        "KHR_texture_transform", "KHR_materials_emissive_strength", "KHR_materials_transmission",
+        "KHR_materials_pbrSpecularGlossiness",
+    ]
     func load() throws -> SceneDescription {
-        let supported: Set<String> = [
-            "KHR_texture_transform", "KHR_materials_emissive_strength", "KHR_materials_transmission",
-        ]
-        let missing = Set(document.extensionsRequired ?? []).subtracting(supported)
+        let missing = Set(document.extensionsRequired ?? []).subtracting(Self.supportedExtensions)
         guard missing.isEmpty else {
             throw RenderFailure("不支持必需扩展：\(missing.sorted().joined(separator: ", "))")
         }
@@ -98,6 +99,16 @@ nonisolated struct GLTFImporter {
             result.normalTexture = try binding(material.normalTexture)
             result.emissiveTexture = try binding(material.emissiveTexture)
             result.occlusionTexture = try binding(material.occlusionTexture)
+            // The SG extension takes precedence over the core MR fallback.
+            if let sg = material.extensions?.KHR_materials_pbrSpecularGlossiness {
+                let diffuse = try vector(sg.diffuseFactor, count: 4, fallback: [1, 1, 1, 1])
+                let specular = try vector(sg.specularFactor, count: 3, fallback: [1, 1, 1])
+                result.surface = .specularGlossiness(
+                    diffuse: SIMD4(diffuse), specular: SIMD3(specular), glossiness: sg.glossinessFactor ?? 1)
+                result.baseColorTexture = try binding(sg.diffuseTexture)
+                result.metallicRoughnessTexture = nil
+                result.specularGlossinessTexture = try binding(sg.specularGlossinessTexture)
+            }
             graph.materials.append(result)
         }
         let defaultMaterial = SceneMaterial(

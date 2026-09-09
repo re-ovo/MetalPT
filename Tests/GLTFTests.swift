@@ -100,6 +100,47 @@ import simd
         textured["meshes"] = [
             ["primitives": [["attributes": ["POSITION": 0, "TEXCOORD_0": 2], "indices": 1, "material": 0]]]
         ]
+        var sgAsset = textured
+        sgAsset["extensionsRequired"] = ["KHR_materials_pbrSpecularGlossiness"]
+        sgAsset["materials"] = [
+            [
+                "pbrMetallicRoughness": ["baseColorFactor": [1, 0, 0, 1], "metallicFactor": 1],
+                "alphaMode": "MASK", "alphaCutoff": 0.4,
+                "extensions": [
+                    "KHR_materials_pbrSpecularGlossiness": [
+                        "diffuseFactor": [0.2, 0.4, 0.6, 0.8], "specularFactor": [0.1, 0.3, 0.5],
+                        "glossinessFactor": 0.7, "diffuseTexture": ["index": 0],
+                        "specularGlossinessTexture": [
+                            "index": 0, "extensions": ["KHR_texture_transform": ["offset": [0.25, 0.5]]],
+                        ],
+                    ]
+                ],
+            ]
+        ]
+        let sgScene = try load(sgAsset)
+        let sg = sgScene.materials[0]
+        assert(
+            sg.kind == .specularGlossiness && sg.color == SIMD4(0.2, 0.4, 0.6, 0.8),
+            "SG overrides MR fallback")
+        assert(
+            sg.specularGlossiness == SIMD4(0.1, 0.3, 0.5, 0.7), "Independent RGB specular/glossiness factors")
+        assert(
+            sg.baseColorTexture?.texture == sgScene.textures[2].id && sg.alphaMode == .mask
+                && sg.alphaCutoff == 0.4,
+            "SG diffuse texture carries coverage")
+        assert(
+            sg.specularGlossinessTexture?.offset == SIMD2(0.25, 0.5) && sg.metallicRoughnessTexture == nil,
+            "SG texture transform and workflow isolation")
+        try glb(sgAsset).write(to: URL(fileURLWithPath: "/tmp/specular-glossiness-fixture.glb"))
+        sgAsset["materials"] = [["extensions": ["KHR_materials_pbrSpecularGlossiness": [:]]]]
+        let sgDefault = try load(sgAsset).materials[0]
+        assert(
+            sgDefault.color == SIMD4(repeating: 1) && sgDefault.specularGlossiness == SIMD4(repeating: 1),
+            "SG defaults without MR fallback")
+        sgAsset["materials"] = [
+            ["extensions": ["KHR_materials_pbrSpecularGlossiness": ["specularFactor": [1, 2]]]]
+        ]
+        reject { _ = try load(sgAsset) }
         var transmissionAsset = textured
         transmissionAsset["extensionsRequired"] = ["KHR_materials_transmission"]
         transmissionAsset["materials"] = [

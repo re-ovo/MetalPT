@@ -11,7 +11,7 @@ kernel void validateRGB(constant PTScene &s [[buffer(0)]],
     material.baseColor = float4(0.2f, 0.5f, 0.8f, 1);
     float pdf;
     float3 n = float3(0, 0, 1);
-    w.radiance[0] = float4(evaluateBSDF(m, material, n, n, n, pdf) * PI, 0);
+    w.radiance[0] = float4(evaluateBSDF(prepareBSDF(m, material), n, n, n, pdf) * PI, 0);
     w.radiance[1] = float4(dielectricF(0.1f, 1.5f, 1), dielectricF(1, 1, 1.5f), 0, 0);
     w.radiance[2] = float4(goldFresnel(1), 0);
     float integral = 0;

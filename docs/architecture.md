@@ -6,13 +6,23 @@
 
 `SceneGraph` 是 CPU 编辑层：Mesh、Material 与 Node 使用不同类型的 UUID，资产数组重排不会改变节点引用。节点具有父子关系、局部变换与可见性；父变换失效会传播到子树，编译时只重新计算失效的世界矩阵。重挂节点保留局部变换，拒绝环；删除节点同时删除子树。编译结果 `SceneDescription` 是扁平的渲染快照，用密集索引供 GPU 上传。
 
-`SceneMesh` 使用独立 CPU 顶点/三角形结构，上传时转换为共享 ABI。三角形引用 Mesh 内部材质槽，节点将每个槽绑定到 MaterialID，GPU `PTInstance` 通过独立指针访问绑定表。同一个 Mesh/BLAS 可以具有不同的多材质组合；`PTInstance` 大小为 96 字节。`SceneMaterial.Surface` 支持漫反射、黄金、玻璃、吸收表面及 metallic-roughness；发光为附加属性。图片/纹理/采样器分离，支持六种纹理语义、UV0/1、顶点颜色、切线、法线贴图和透明覆盖。结构及使用方式见 [表面资产](surface-assets.md)。
+`SceneMesh` 使用独立 CPU 顶点/三角形结构，上传时转换为共享 ABI。三角形引用 Mesh 内部材质槽，节点将每个槽绑定到 MaterialID，GPU `PTInstance` 通过独立指针访问绑定表。同一个 Mesh/BLAS 可以具有不同的多材质组合；`PTInstance` 大小为 96 字节。`SceneMaterial.Surface` 支持漫反射、黄金、玻璃、吸收表面及 metallic-roughness；发光为附加属性。图片/纹理/采样器分离，支持七种纹理语义、UV0/1、顶点颜色、切线、法线贴图和透明覆盖。结构及使用方式见 [表面资产](surface-assets.md)。
 
 纹理资源 ID 表按场景实际数量分配，材质引用超界时使用第零槽的白色纹理。NEE 均匀选择灯光，直接采样及发光表面命中的 MIS 都包含灯光选择概率；未登记为采样灯的发光几何仍通过路径命中贡献。采样灯必须对应独立矩形实例；两个三角形须沿任一对角线完整覆盖矩形，且使用与采样参数一致的规范 0–1 UV。重叠、缺面或自定义 UV 会被拒绝，以保证 NEE 与路径命中的发光求值一致。
 
 `Renderer.sceneGraph` 接收编辑后的图；赋值后下次渲染编译新快照并重置累积。内置场景及验证用 `sceneOverride` 也经过同一编译路径；显式 sceneGraph 优先。新 `BindlessScene` 按 MeshID 和完整几何比较复用上一已提交快照的顶点、索引及 BLAS。仅实例变换或材质变化时不编码 BLAS 构建，只构建新的 TLAS；几何变化构建对应的新 BLAS。复用 AS 作为已初始化资源导入图，跨帧完成事件提供同步，旧快照仍由在途帧持有。
 
 该复用只覆盖相邻快照；材质、纹理和实例表仍整表上传，TLAS 使用新分配的 build 而非 refit。几何比较为线性扫描，尚无内容版本、跨场景资产缓存、异步上传、LOD或蒙皮。
+
+## 材质工作流与 BSDF
+
+CPU `SceneMaterial.Surface` 保留 Metallic-Roughness 和 Specular-Glossiness 两种工作流。`PTMaterial` 为 432 字节，新增独立的 RGB specular / glossiness 因子和纹理绑定；其余路径、场景 ABI 大小不变。
+
+`MaterialTextures.h` 在交点读取纹理、颜色与透明覆盖；`SurfaceParameters.h` 的 `prepareBSDF` 将工作流转换为不带 GPU 指针或纹理绑定的公共参数：散射类型、漫反射颜色、F0、GGX alpha、透射颜色及分量采样概率。MR、SG 与黄金共享 microfacet 类型，保留各自能量约定与原有 MR 行为。
+
+`BSDF.h` 的 `evaluateBSDF` 同时返回有限立体角 BSDF 与完整混合 PDF；`sampleSurfaceBSDF` 返回方向、已经包含 `f * abs(cos) / pdf` 的权重、PDF、delta / transmitted 标记和 etaI/etaT。理想玻璃通过同一接口返回离散反射/折射事件；透射权重包含辐亮度 eta²，积分器用返回的 eta 补偿俄罗斯轮盘。理想玻璃使用几何法线和固定 IOR 1.5；薄表面直透的 eta 为 1。
+
+`MaterialShading.metal` 只负责发光命中、直接光采样/MIS、应用 BSDF 样本和路径队列，不再自行实现玻璃 Fresnel 或折射采样。当前分派为内联类型分支，未引入按材质分队列或动态函数表。SG 的非 delta GGX 仍使用粗糙度数值下限；多层涂层和通用 BSDF 混合图尚未实现。
 
 ## 资源登记与驻留
 

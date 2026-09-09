@@ -41,7 +41,7 @@ final class MetalContext {
             p.computeFunctionDescriptor = f
             pipelines[name] = try compiler.makeComputePipelineState(descriptor: p, compilerTaskOptions: nil)
         }
-        precondition(MemoryLayout<PTVertex>.stride == 96 && MemoryLayout<PTMaterial>.stride == 368)
+        precondition(MemoryLayout<PTVertex>.stride == 96 && MemoryLayout<PTMaterial>.stride == 432)
         precondition(MemoryLayout<PTPath>.stride == 80 && MemoryLayout<PTFrame>.stride == 112)
         precondition(MemoryLayout<PTScene>.stride == 80 && MemoryLayout<PTWork>.stride == 64)
     }

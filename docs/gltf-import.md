@@ -2,7 +2,7 @@
 
 将单个 `.glb` 或 `.gltf` 拖入视口，或点击「打开模型」。对于含外部 bin / 图片的 glTF，使用「打开模型文件夹」授予目录读取权限，再选择文件。加载完成后自动取景并添加查看灯光；失败保留当前场景，连续加载仅安装最新结果。「返回内置场景」恢复演示场景。
 
-支持 glTF 2.0 静态三角形、三角带和三角扇，节点 matrix / TRS、共享网格、多材质、交错 / normalized / sparse accessor、UV0/1、顶点色、PNG/JPEG 和 metallic-roughness 材质。支持 `KHR_texture_transform`、`KHR_materials_emissive_strength`、`KHR_materials_transmission`。动画使用静态姿态；蒙皮、morph targets 和未知必需扩展会明确报错。未知可选扩展在界面提示。材质颜色直接在线性 RGB 中参与积分。
+支持 glTF 2.0 静态三角形、三角带和三角扇，节点 matrix / TRS、共享网格、多材质、交错 / normalized / sparse accessor、UV0/1、顶点色、PNG/JPEG 和 metallic-roughness 材质。支持 `KHR_materials_pbrSpecularGlossiness`、`KHR_texture_transform`、`KHR_materials_emissive_strength`、`KHR_materials_transmission`。动画使用静态姿态；蒙皮、morph targets 和未知必需扩展会明确报错。未知可选扩展在界面提示。材质颜色直接在线性 RGB 中参与积分。
 
 文件体积、顶点总量和三角形总量没有人为配额；保留数据范围、整数表示与 GPU 资源有效性检查。当前 CPU accessor 解码和主线程纹理准备尚未针对大模型优化。
 
@@ -41,3 +41,13 @@ SPECTRAL_TRANSMISSION_VALIDATE=1 SPECTRAL_WIDTH=320 SPECTRAL_HEIGHT=240 scripts/
 ```
 
 本机 M4 的 API / Shader Validation 已通过纹理 R 通道、光滑能量、着色、金属不透射、粗糙采样 PDF，以及 opaque / partial / clear / rough 四组 128 spp 对照图。数值记录见 `docs/validation/transmission.json`。用户新版 GLASS.glb 已通过 64 spp 导入渲染验证。
+
+## Specular-Glossiness 材质
+
+支持 `KHR_materials_pbrSpecularGlossiness` 的 diffuseFactor、specularFactor、glossinessFactor、diffuseTexture 和 specularGlossinessTexture；同时存在 Metallic-Roughness 回退时优先使用 SG。SG 纹理支持同一套 UV、采样器和 KHR_texture_transform。
+
+diffuseTexture 的 RGB 经 sRGB 解码并乘顶点颜色，alpha 用于 OPAQUE/MASK/BLEND；specularGlossinessTexture 的 RGB 经 sRGB 解码作为独立 F0，alpha 保持线性并乘 glossinessFactor。两种纹理的 alpha 不混用。交点参数使用 `c_diff = diffuse.rgb * (1 - max(F0))`、`alpha = (1 - glossiness)^2`，GGX 保留数值下限，与 MR 共享 BSDF 求值和混合 PDF。SG 当前不叠加 transmission 扩展。
+
+本地 Bistro 的 254 个材质中，234 个使用 SG、19 个使用 MR（其中 18 个附加 transmission）。本次补齐其 SG 材质导入与着色路径；`KHR_lights_punctual` 方向光仍未实现，不能据此认为原场景光照已完整还原。`MSFT_texture_dds` 仍被忽略，该文件的全部纹理同时提供标准 PNG source。
+
+依据：[KHR_materials_pbrSpecularGlossiness](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Archived/KHR_materials_pbrSpecularGlossiness)。

@@ -38,23 +38,24 @@ kernel void validateSurfaceAssets(constant PTScene &s [[buffer(0)]],
     material.roughness = 0.5f;
     material.metallic = 0.5f;
     float pdfA, pdfB;
-    w.radiance[14] = float4(
-        abs(evaluateBSDF(m, material, n, wo, wi, pdfA) - evaluateBSDF(m, material, n, wi, wo, pdfB)), 0);
+    w.radiance[14] = float4(abs(evaluateBSDF(prepareBSDF(m, material), n, wo, wi, pdfA) -
+                                evaluateBSDF(prepareBSDF(m, material), n, wi, wo, pdfB)),
+                            0);
     for (uint j = 0; j < 3; ++j) {
         material.metallic = float(j) * 0.5f;
         uint rng = 1234;
         float3 energy = 0;
         float valid = 0, integratedPDF = 0;
         for (uint i = 0; i < 16384; ++i) {
-            float3 incoming = sampleBSDF(m, material, n, n, rng);
+            float3 incoming = sampleBSDF(prepareBSDF(m, material), n, n, rng);
             float pdf;
-            float3 f = evaluateBSDF(m, material, n, n, incoming, pdf);
+            float3 f = evaluateBSDF(prepareBSDF(m, material), n, n, incoming, pdf);
             if (pdf > 0 && incoming.z > 0) {
                 energy += f * incoming.z / pdf;
                 valid += 1;
             }
             float z = (float(i) + 0.5f) / 16384;
-            evaluateBSDF(m, material, n, n, float3(sqrt(1 - z * z), 0, z), pdf);
+            evaluateBSDF(prepareBSDF(m, material), n, n, float3(sqrt(1 - z * z), 0, z), pdf);
             integratedPDF += pdf * 2 * PI;
         }
         w.radiance[15 + j] = float4(energy / 16384, 0);
@@ -62,7 +63,7 @@ kernel void validateSurfaceAssets(constant PTScene &s [[buffer(0)]],
     }
     // A positive emission term must not remove the reflective BSDF.
     float pdf;
-    w.radiance[21] = float4(evaluateBSDF(m, material, n, n, n, pdf), 0);
+    w.radiance[21] = float4(evaluateBSDF(prepareBSDF(m, material), n, n, n, pdf), 0);
     b = m.baseColorTexture;
     b.transform.xy = float2(0.5f, 0);
     w.radiance[22] = sampleTexture(s, b, uv, true);
@@ -75,13 +76,56 @@ kernel void validateSurfaceAssets(constant PTScene &s [[buffer(0)]],
     uint smoothRNG = 97531;
     float3 smoothEnergy = 0;
     for (uint i = 0; i < 4096; ++i) {
-        float3 incoming = sampleBSDF(m, material, n, n, smoothRNG);
+        float3 incoming = sampleBSDF(prepareBSDF(m, material), n, n, smoothRNG);
         float samplePDF;
-        float3 value = evaluateBSDF(m, material, n, n, incoming, samplePDF);
+        float3 value = evaluateBSDF(prepareBSDF(m, material), n, n, incoming, samplePDF);
         if (samplePDF > 0)
             smoothEnergy += value * max(0.0f, incoming.z) / samplePDF;
     }
     w.radiance[25] = float4(smoothEnergy / 4096, 0);
+    PTMaterial sg = s.materials[2];
+    MaterialSample sgSample = sampleMaterial(s, sg, uv, float4(0.5f));
+    SurfaceParameters sgBSDF = prepareBSDF(sg, sgSample);
+    w.radiance[26] = float4(sgBSDF.f0, sgSample.roughness);
+    w.radiance[27] = float4(sgBSDF.diffuseColor, sgSample.baseColor.a);
+    w.radiance[28] =
+        float4(abs(evaluateBSDF(sgBSDF, n, wo, wi, pdfA) - evaluateBSDF(sgBSDF, n, wi, wo, pdfB)), 0);
+    uint sgRNG = 13579;
+    float3 sgEnergy = 0;
+    float sgValid = 0, sgPDF = 0, mismatch = 0;
+    for (uint i = 0; i < 16384; ++i) {
+        BSDFSample sample = sampleSurfaceBSDF(sgBSDF, n, n, sgRNG);
+        if (sample.pdf > 0) {
+            sgEnergy += sample.weight;
+            sgValid += 1;
+            float p;
+            float3 value = evaluateBSDF(sgBSDF, n, n, sample.direction, p);
+            mismatch = max(mismatch, length(sample.weight * p - value * sample.direction.z));
+        }
+        float z = (float(i) + 0.5f) / 16384;
+        float p;
+        evaluateBSDF(sgBSDF, n, n, float3(sqrt(1 - z * z), 0, z), p);
+        sgPDF += p * 2 * PI;
+    }
+    w.radiance[29] = float4(sgEnergy / 16384, mismatch);
+    w.radiance[30] = float4(sgValid / 16384, sgPDF / 16384, 0, 0);
+    SurfaceParameters glass = {};
+    glass.kind = BSDFKind::dielectric;
+    uint glassRNG = 56789;
+    float reflections = 0, etaError = 0, weightError = 0, eventError = 0;
+    for (uint i = 0; i < 16384; ++i) {
+        bool frontFace = i % 2 == 0;
+        BSDFSample sample = sampleSurfaceBSDF(glass, n, n, glassRNG, frontFace);
+        reflections += !sample.transmitted;
+        float expectedEta = sample.transmitted ? (frontFace ? 1 / 1.5f : 1.5f) : 1;
+        etaError = max(etaError, abs(sample.eta - expectedEta));
+        weightError = max(weightError, length(sample.weight / (sample.eta * sample.eta) - 1));
+        eventError += !sample.delta || (sample.transmitted != (sample.direction.z < 0)) ||
+                      abs(sample.pdf - (sample.transmitted ? 0.96f : 0.04f)) > 1e-5f;
+    }
+    w.radiance[31] = float4(reflections / 16384, etaError, weightError, eventError);
+    BSDFSample tir = sampleSurfaceBSDF(glass, n, normalize(float3(0.99f, 0, 0.1f)), glassRNG, false);
+    w.radiance[32] = float4(tir.pdf, tir.eta, tir.transmitted, tir.delta);
 }
 
 kernel void validateCoverage(constant PTScene &s [[buffer(0)]],

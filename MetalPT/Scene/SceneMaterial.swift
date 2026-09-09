@@ -8,8 +8,9 @@ nonisolated struct SceneMaterial {
         case dielectric
         case absorbing
         case metallicRoughness(baseColor: SIMD4<Float>, metallic: Float, roughness: Float)
+        case specularGlossiness(diffuse: SIMD4<Float>, specular: SIMD3<Float>, glossiness: Float)
     }
-    enum Kind: UInt32 { case diffuse, gold, dielectric, absorbing, metallicRoughness }
+    enum Kind: UInt32 { case diffuse, gold, dielectric, absorbing, metallicRoughness, specularGlossiness }
     enum AlphaMode: UInt32 { case opaque, mask, blend }
     struct Emission {
         var color = SIMD3<Float>(repeating: 1)
@@ -30,6 +31,7 @@ nonisolated struct SceneMaterial {
     var emissiveTexture: TextureBinding?
     var occlusionTexture: TextureBinding?
     var transmissionTexture: TextureBinding?
+    var specularGlossinessTexture: TextureBinding?
 
     var kind: Kind {
         switch surface {
@@ -38,18 +40,20 @@ nonisolated struct SceneMaterial {
         case .dielectric: return .dielectric
         case .absorbing: return .absorbing
         case .metallicRoughness: return .metallicRoughness
+        case .specularGlossiness: return .specularGlossiness
         }
     }
     var color: SIMD4<Float> {
         switch surface {
         case .diffuse(let color): return SIMD4(color, 1)
-        case .metallicRoughness(let color, _, _): return color
+        case .metallicRoughness(let color, _, _), .specularGlossiness(let color, _, _): return color
         default: return SIMD4(repeating: 1)
         }
     }
     var roughness: Float {
         switch surface {
         case .gold(let roughness), .metallicRoughness(_, _, let roughness): return roughness
+        case .specularGlossiness(_, _, let glossiness): return 1 - glossiness
         default: return 0
         }
     }
@@ -57,10 +61,16 @@ nonisolated struct SceneMaterial {
         if case .metallicRoughness(_, let metallic, _) = surface { return metallic }
         return 0
     }
+    var specularGlossiness: SIMD4<Float> {
+        if case .specularGlossiness(_, let specular, let glossiness) = surface {
+            return SIMD4(specular, glossiness)
+        }
+        return [0.04, 0.04, 0.04, 1]
+    }
     var bindings: [TextureBinding] {
         [
             baseColorTexture, metallicRoughnessTexture, normalTexture, emissiveTexture, occlusionTexture,
-            transmissionTexture,
+            transmissionTexture, specularGlossinessTexture,
         ]
         .compactMap { $0 }
     }
@@ -69,7 +79,8 @@ nonisolated struct SceneMaterial {
             value?.gpu(textures: textures, samplers: samplers) ?? PTTextureBinding()
         }
         return PTMaterial(
-            color: color, emission: SIMD4(emission.color, emission.strength),
+            color: color, specularGlossiness: specularGlossiness,
+            emission: SIMD4(emission.color, emission.strength),
             optics: [roughness, metallic, normalScale, occlusionStrength],
             coverage: [alphaCutoff, transmissionFactor, 0, 0],
             flags: [kind.rawValue, alphaMode.rawValue, doubleSided ? 1 : 0, 0],
@@ -77,13 +88,16 @@ nonisolated struct SceneMaterial {
             metallicRoughnessTexture: binding(metallicRoughnessTexture),
             normalTexture: binding(normalTexture),
             emissiveTexture: binding(emissiveTexture),
-            occlusionTexture: binding(occlusionTexture), transmissionTexture: binding(transmissionTexture))
+            occlusionTexture: binding(occlusionTexture), transmissionTexture: binding(transmissionTexture),
+            specularGlossinessTexture: binding(specularGlossinessTexture))
     }
     func validate(samplers: Set<SamplerID>) throws {
         guard
             [color.x, color.y, color.z, color.w, emission.color.x, emission.color.y, emission.color.z]
                 .allSatisfy(\.isFinite),
             color.min() >= 0, color.max() <= 1,
+            [specularGlossiness.x, specularGlossiness.y, specularGlossiness.z, specularGlossiness.w]
+                .allSatisfy({ $0.isFinite && (0...1).contains($0) }),
             roughness.isFinite, (0...1).contains(roughness), metallic.isFinite, (0...1).contains(metallic),
             emission.color.min() >= 0, emission.color.max().isFinite,
             emission.strength.isFinite, emission.strength >= 0,

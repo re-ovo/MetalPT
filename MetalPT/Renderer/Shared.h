@@ -37,13 +37,14 @@ typedef struct {
     PTFloat4 rotationLOD; // cos, sin, explicit LOD, reserved
 } PTTextureBinding;
 
-// kind: diffuse, gold, dielectric, absorbing, metallic-roughness.
+// kind: diffuse, gold, dielectric, absorbing, metallic-roughness, specular-glossiness.
 typedef struct {
     // coverage: alpha cutoff, transmission factor, reserved, reserved.
-    PTFloat4 color, emission, optics, coverage;
+    // specularGlossiness: linear RGB F0, glossiness factor.
+    PTFloat4 color, specularGlossiness, emission, optics, coverage;
     PTUInt4 flags; // kind, alpha mode, double sided, reserved
     PTTextureBinding baseColorTexture, metallicRoughnessTexture, normalTexture, emissiveTexture,
-        occlusionTexture, transmissionTexture;
+        occlusionTexture, transmissionTexture, specularGlossinessTexture;
 } PTMaterial;
 
 typedef struct {
@@ -124,7 +125,7 @@ _Static_assert(sizeof(PTTextureBinding) == 48, "texture binding ABI");
 _Static_assert(sizeof(PTHit) == 112, "hit ABI");
 _Static_assert(sizeof(PTSampler) == 8, "sampler ABI");
 _Static_assert(sizeof(PTVertex) == 96, "vertex ABI");
-_Static_assert(sizeof(PTMaterial) == 368, "material ABI");
+_Static_assert(sizeof(PTMaterial) == 432, "material ABI");
 _Static_assert(sizeof(PTPath) == 80, "path ABI");
 _Static_assert(sizeof(PTFrame) == 112, "frame ABI");
 _Static_assert(sizeof(PTScene) == 80, "scene ABI");
