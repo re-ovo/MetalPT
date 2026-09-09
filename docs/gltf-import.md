@@ -1,10 +1,10 @@
 # glTF / GLB 导入
 
-将单个 `.glb` 或 `.gltf` 拖入视口，或点击「打开模型」。对于含外部 bin / 图片的 glTF，使用「打开模型文件夹」授予目录读取权限，再选择文件。加载完成后自动取景并添加查看灯光；失败保留当前场景，连续加载仅安装最新结果。「返回内置场景」恢复演示场景。
+将单个 `.glb` 或 `.gltf` 拖入视口，或点击「打开模型」。对于含外部 bin / 图片的 glTF，使用「打开模型文件夹」授予目录读取权限，再选择文件。加载完成后自动取景并添加查看灯光；失败保留当前场景，连续加载仅安装最新结果，旧请求会在图片、网格与纹理准备检查点取消。「返回内置场景」恢复演示场景。
 
 支持 glTF 2.0 静态三角形、三角带和三角扇，节点 matrix / TRS、共享网格、多材质、交错 / normalized / sparse accessor、UV0/1、顶点色、PNG/JPEG 和 metallic-roughness 材质。支持 `KHR_materials_pbrSpecularGlossiness`、`KHR_texture_transform`、`KHR_materials_emissive_strength`、`KHR_materials_transmission`。动画使用静态姿态；蒙皮、morph targets 和未知必需扩展会明确报错。未知可选扩展在界面提示。材质颜色直接在线性 RGB 中参与积分。
 
-文件体积、顶点总量和三角形总量没有人为配额；保留数据范围、整数表示与 GPU 资源有效性检查。当前 CPU accessor 解码和主线程纹理准备尚未针对大模型优化。
+文件体积、顶点总量和三角形总量没有人为配额；保留数据范围、整数表示与 GPU 资源有效性检查。Accessor 在验证范围后批量读取原始字节；共享网格的槽位/UV 校验与局部包围盒只计算一次，再用于实例。纹理在导入工作线程准备，mip 由 GPU 生成，完成后才安装场景。图片解码仍是串行 CPU 工作，几何上传与快照安装仍在主线程。
 
 本文以下本机 M4 结果为 RGB 重构前的历史验证；当前记录见 [RGB 验证](validation/rgb.md)。
 
@@ -51,3 +51,19 @@ diffuseTexture 的 RGB 经 sRGB 解码并乘顶点颜色，alpha 用于 OPAQUE/M
 本地 Bistro 的 254 个材质中，234 个使用 SG、19 个使用 MR（其中 18 个附加 transmission）。本次补齐其 SG 材质导入与着色路径；`KHR_lights_punctual` 方向光仍未实现，不能据此认为原场景光照已完整还原。`MSFT_texture_dds` 仍被忽略，该文件的全部纹理同时提供标准 PNG source。
 
 依据：[KHR_materials_pbrSpecularGlossiness](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Archived/KHR_materials_pbrSpecularGlossiness)。
+
+## 加载性能诊断
+
+设置 `SPECTRAL_IMPORT_PROFILE=1` 会输出队列等待、容器读取、解析/编译、自动取景、纹理准备、主线程安装与总耗时（毫秒）；glTF GPU 验证报告包含同样的 `importTimingsMs`。总耗时到场景安装完成为止，不包含首帧 BLAS/TLAS 构建。
+
+纹理仅为实际使用的颜色空间创建 mip 链，未使用的表项指向白色回退。颜色/数据同时使用时保留两套独立 mip；不再无条件为每张图片分配两套。后台上传使用独立 Metal blit 队列，并等待完成后将纹理登记为已初始化的场景资源。1×1 纹理跳过 mip 生成。
+
+本机 Rikki 与纹理负载的测量及边界见 [导入性能验证](validation/import-performance.md)。
+
+## 无效导出切线的容错
+
+对 TANGENT 中的 NaN/Inf、零方向或不合法手性（w 不为 ±1），导入器仅取消该顶点的切线属性并保留有限默认值。受影响的三角形通过已有 UV 导数路径建立切线空间；退化 UV 无法形成切线时保留基础着色法线。有效切线继续使用导出值。界面显示修复数量。
+
+位置、法线、UV 等其他 accessor 仍严格拒绝 NaN/Inf；错误现在包含 accessor 编号、记录与分量，方便定位源数据。本地 Bistro 原始字节中有 12 个切线 accessor 的 847 条记录含 NaN，加上零方向等无效值，共 13552 条切线需要回退。
+
+完整 Bistro 已通过此次切线容错后的导入与 GPU 验证，详见 [Bistro 切线验证](validation/bistro-tangents.md)。

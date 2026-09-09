@@ -2,6 +2,23 @@ import AppKit
 import Observation
 import UniformTypeIdentifiers
 
+/// Cancellation is shared with the serial worker without reading UI-isolated state.
+nonisolated final class ImportRequest: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        lock.unlock()
+    }
+    func check() throws {
+        lock.lock()
+        let value = cancelled
+        lock.unlock()
+        if value { throw CancellationError() }
+    }
+}
+
 /// One serial worker limits memory usage; generation checks prevent stale loads from being installed.
 @Observable final class ModelImportController {
     var filename: String?
@@ -10,6 +27,8 @@ import UniformTypeIdentifiers
     var notice = "支持 glTF 2.0 / GLB · 拖入视口加载"
     weak var renderer: Renderer?
     private var generation = 0
+    private var activeRequest: ImportRequest?
+    private(set) var lastTimings: [String: Double] = [:]
     private let worker = DispatchQueue(label: "MetalPT.glTF", qos: .userInitiated)
 
     func open() {
@@ -46,22 +65,51 @@ import UniformTypeIdentifiers
             error = "请选择 .glb 或 .gltf 文件"
             return
         }
+        guard let device = renderer?.context.device else {
+            error = "渲染器尚未就绪"
+            return
+        }
         generation += 1
         let request = generation
+        activeRequest?.cancel()
+        let cancellation = ImportRequest()
+        activeRequest = cancellation
+        let requestedAt = ProcessInfo.processInfo.systemUptime
         isLoading = true
         error = nil
         let scoped = url.startAccessingSecurityScopedResource()
         let folderScoped = directory?.startAccessingSecurityScopedResource() ?? false
         worker.async { [weak self] in
-            let result = Result { () -> (SceneDescription, String) in
-                let container = try GLTFContainer(url: url)
-                let description = try GLTFPresentation.prepare(GLTFImporter(container: container).load())
+            let result = Result {
+                () -> (SceneDescription, String, SceneTextureUpload.Prepared, [String: Double]) in
+                try cancellation.check()
+                var times: [String: Double] = [:]
+                func measure<T>(_ name: String, _ work: () throws -> T) rethrows -> T {
+                    let start = ProcessInfo.processInfo.systemUptime
+                    let result = try work()
+                    times[name] = (ProcessInfo.processInfo.systemUptime - start) * 1000
+                    return result
+                }
+                times["queueWaitMs"] = (ProcessInfo.processInfo.systemUptime - requestedAt) * 1000
+                let container = try measure("containerMs") { try GLTFContainer(url: url) }
+                var warnings: [String] = []
+                let imported = try measure("decodeCompileMs") {
+                    try GLTFImporter(container: container).load(
+                        reportWarning: { warnings.append($0) }, checkCancellation: cancellation.check)
+                }
+                try cancellation.check()
+                let description = try measure("presentationMs") { try GLTFPresentation.prepare(imported) }
                 var notice = "自动取景 · 查看灯光"
                 if !(container.document.animations ?? []).isEmpty { notice += " · 动画使用静态姿态" }
                 let ignored = Set(container.document.extensionsUsed ?? []).subtracting(
                     GLTFImporter.supportedExtensions)
                 if !ignored.isEmpty { notice += "\n忽略可选扩展：" + ignored.sorted().joined(separator: ", ") }
-                return (description, notice)
+                if !warnings.isEmpty { notice += "\n" + warnings.joined(separator: "\n") }
+                let textures = try measure("texturesMs") {
+                    try SceneTextureUpload.Prepared(
+                        device: device, scene: description, checkCancellation: cancellation.check)
+                }
+                return (description, notice, textures, times)
             }
             if scoped { url.stopAccessingSecurityScopedResource() }
             if folderScoped { directory?.stopAccessingSecurityScopedResource() }
@@ -69,9 +117,17 @@ import UniformTypeIdentifiers
                 guard let self, request == self.generation else { return }
                 self.isLoading = false
                 do {
-                    let (description, notice) = try result.get()
+                    let (description, notice, textures, times) = try result.get()
                     guard let renderer = self.renderer else { throw RenderFailure("渲染器尚未就绪") }
-                    try renderer.installImportedScene(description)
+                    let installStart = ProcessInfo.processInfo.systemUptime
+                    try renderer.installImportedScene(description, textures: textures)
+                    self.lastTimings = times
+                    self.lastTimings["installMs"] =
+                        (ProcessInfo.processInfo.systemUptime - installStart) * 1000
+                    self.lastTimings["totalMs"] = (ProcessInfo.processInfo.systemUptime - requestedAt) * 1000
+                    if ProcessInfo.processInfo.environment["SPECTRAL_IMPORT_PROFILE"] != nil {
+                        print("Import \(url.lastPathComponent): \(self.lastTimings)")
+                    }
                     self.filename = url.lastPathComponent
                     self.notice = notice
                 } catch { self.error = error.localizedDescription }
@@ -80,6 +136,8 @@ import UniformTypeIdentifiers
     }
 
     func showDemo() {
+        activeRequest?.cancel()
+        activeRequest = nil
         generation += 1
         isLoading = false
         filename = nil

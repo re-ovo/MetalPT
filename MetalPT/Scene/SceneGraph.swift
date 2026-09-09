@@ -102,7 +102,8 @@ nonisolated struct SceneGraph {
     }
 
     private mutating func invalidate(_ id: NodeID) {
-        worldTransforms.removeValue(forKey: id)
+        // A cached descendant always has cached ancestors. Newly imported nodes need no scan.
+        guard worldTransforms.removeValue(forKey: id) != nil else { return }
         for child in order.filter({ nodes[$0]?.parent == id }) { invalidate(child) }
     }
 
@@ -124,6 +125,7 @@ nonisolated struct SceneGraph {
         }
         let meshIndices = Dictionary(uniqueKeysWithValues: meshes.enumerated().map { ($1.id, $0) })
         let materialIndices = Dictionary(uniqueKeysWithValues: materials.enumerated().map { ($1.id, $0) })
+        let materialSlotCounts = meshes.map(\.materialSlotCount)
         var result = SceneDescription()
         result.meshes = meshes
         result.materials = materials
@@ -145,7 +147,7 @@ nonisolated struct SceneGraph {
                 guard let index = materialIndices[id] else { throw RenderFailure("节点引用已删除的材质") }
                 return index
             }
-            guard bindings.count == meshes[mesh].materialSlotCount else {
+            guard bindings.count == materialSlotCounts[mesh] else {
                 throw RenderFailure("节点材质绑定与 Mesh 槽位数量不符")
             }
             guard visible else { continue }

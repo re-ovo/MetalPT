@@ -66,13 +66,17 @@ enum SurfaceAssetValidation {
         flat.id = MeshID()
         for index in flat.vertices.indices { flat.vertices[index].attributes &= ~UInt32(3) }
         _ = scene.addMesh(flat, materials: [0])
+        var partialTangent = mesh
+        partialTangent.id = MeshID()
+        partialTangent.vertices[0].attributes &= ~UInt32(2)
+        _ = scene.addMesh(partialTangent, materials: [1])
         scene.lights = [
             .init(instance: 1, material: 0, origin: [-0.5, -0.5, 0], u: [1, 0, 0], v: [0, 1, 0])
         ]
         renderer.sceneOverride = scene
         _ = try renderer.render(to: output)
         await renderer.waitForGPU()
-        let values = try await renderer.validateNumerics(kernel: "validateSurfaceAssets", count: 33)
+        let values = try await renderer.validateNumerics(kernel: "validateSurfaceAssets", count: 34)
         try require(
             values.allSatisfy { $0.x.isFinite && $0.y.isFinite && $0.z.isFinite && $0.w.isFinite },
             "Surface validation produced nonfinite values")
@@ -102,6 +106,9 @@ enum SurfaceAssetValidation {
             SIMD3<Float>(0.8, 0, -0.6) * map.x + SIMD3<Float>(0, 1, 0) * map.y + SIMD3<Float>(0.6, 0, 0.8)
                 * map.z)
         try require(close(values[12], SIMD4(expectedMapped, 0)), "Tangent normal map failed")
+        try require(
+            close(values[33], SIMD4(expectedMapped, 0)),
+            "A single missing tangent must reconstruct the triangle frame from UVs")
         try require(close(values[13], [0, 0, 1, 0]), "Missing normals did not use geometry")
         try require(values[14].max() < 0.00001, "PBR BSDF lost reciprocity")
         for i in 15...17 {
@@ -143,7 +150,7 @@ enum SurfaceAssetValidation {
         renderer.sceneOverride = reordered
         _ = try renderer.render(to: output)
         await renderer.waitForGPU()
-        let remapped = try await renderer.validateNumerics(kernel: "validateSurfaceAssets", count: 33)
+        let remapped = try await renderer.validateNumerics(kernel: "validateSurfaceAssets", count: 34)
         try require(
             close(remapped[0], color) && close(remapped[4], [1, 0, 0, 1]),
             "Texture/sampler IDs did not survive table reorder")

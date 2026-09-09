@@ -10,7 +10,7 @@ CPU Vertex 包含 position、normal、tangent（w 为手性）、color 和两套
 
 ## 图片与绑定
 
-`SceneImage` 接收 RGBA8 或 ImageIO 可解码的 PNG/JPEG 数据，保留直通 alpha 和图片行序。`SceneTexture` 引用稳定 ImageID；同一图片按语义上传线性与 sRGB 纹理，各自生成 mip 链。颜色 mip 在解码后的线性空间平均，再编码存储；数据和 alpha 不做 sRGB 变换。
+`SceneImage` 接收 RGBA8 或 ImageIO 可解码的 PNG/JPEG 数据，保留直通 alpha 和图片行序。`SceneTexture` 引用稳定 ImageID；图片纹理按材质实际使用的语义上传线性或 sRGB 版本，兼用时保留两套独立 mip；未使用的纹理表项指向白色回退。生产路径通过 GPU blit 生成 mip，导入时在后台等待上传完成。颜色 mip 在解码后的线性空间平均，再编码存储；数据和 alpha 不做 sRGB 变换。CPU `mipLevels` 保留为测试参考，生产 mip 使用 Metal 滤波，非二次幂尺寸的低级 mip 不保证与 CPU 区域平均逐字节相同。
 
 `TextureBinding` 持有稳定 TextureID、可选 SamplerID、texCoord、offset、scale、rotation 和显式 lod。上传时解析成密集 GPU 索引。缺省 sampler 使用场景第零槽；失效纹理使用白色槽，显式无效 sampler 报错。SceneSampler 支持 min/mag 最近点和线性、mip 最近点和线性、repeat/clamp/mirror。
 

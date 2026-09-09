@@ -50,6 +50,7 @@ enum GLTFValidation {
         await renderer.waitForGPU()
         let report: [String: Any] = [
             "device": renderer.context.device.name, "spp": samples,
+            "importTimingsMs": importer.lastTimings,
             "resolution": renderer.model.resolution, "depth": renderer.model.maxDepth,
             "gpuMsMedian": times.sorted()[times.count / 2], "image": stats,
             "queueOverflow": counters[3], "nonFinite": counters[4],

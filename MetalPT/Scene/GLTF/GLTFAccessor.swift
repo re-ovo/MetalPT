@@ -2,7 +2,9 @@ import Foundation
 
 nonisolated struct GLTFAccessor {
     let container: GLTFContainer
-    func decode(_ index: Int, types: [String], components: [Int]) throws -> [[Double]] {
+    func decode(_ index: Int, types: [String], components: [Int], allowNonFinite: Bool = false) throws
+        -> [[Double]]
+    {
         let accessor = try (container.document.accessors ?? []).gltfElement(index, "accessor")
         guard types.contains(accessor.type), components.contains(accessor.componentType),
             accessor.count >= 0
@@ -22,30 +24,52 @@ nonisolated struct GLTFAccessor {
             else {
                 throw RenderFailure("Accessor offset/stride/count 越界或未对齐")
             }
-            return try (0..<records).map { i in
-                try (0..<count).map { c in
-                    let raw = try bytes.gltfUInt(offset + i * stride + c * byteSize, bytes: byteSize)
-                    let value: Double
-                    switch accessor.componentType {
-                    case 5120: value = Double(Int8(bitPattern: UInt8(raw)))
-                    case 5122: value = Double(Int16(bitPattern: UInt16(raw)))
-                    case 5126: value = Double(Float(bitPattern: raw))
-                    default: value = Double(raw)
-                    }
-                    guard value.isFinite else { throw RenderFailure("Accessor 包含 NaN/Inf") }
-                    if accessor.normalized == true {
-                        switch accessor.componentType {
-                        case 5120: return max(-1, value / 127)
-                        case 5121: return value / 255
-                        case 5122: return max(-1, value / 32767)
-                        case 5123: return value / 65535
-                        default: throw RenderFailure("normalized 仅支持 8/16 位整数")
+            return try bytes.withUnsafeBytes { (source: UnsafeRawBufferPointer) in
+                var output: [[Double]] = []
+                output.reserveCapacity(records)
+                for i in 0..<records {
+                    var record = [Double](repeating: 0, count: count)
+                    for c in 0..<count {
+                        let position = offset + i * stride + c * byteSize
+                        let raw: UInt32
+                        switch byteSize {
+                        case 1: raw = UInt32(source[position])
+                        case 2:
+                            raw = UInt32(
+                                UInt16(
+                                    littleEndian: source.loadUnaligned(
+                                        fromByteOffset: position, as: UInt16.self)))
+                        default:
+                            raw = UInt32(
+                                littleEndian: source.loadUnaligned(fromByteOffset: position, as: UInt32.self))
                         }
+                        var value: Double
+                        switch accessor.componentType {
+                        case 5120: value = Double(Int8(bitPattern: UInt8(raw)))
+                        case 5122: value = Double(Int16(bitPattern: UInt16(raw)))
+                        case 5126: value = Double(Float(bitPattern: raw))
+                        default: value = Double(raw)
+                        }
+                        guard allowNonFinite || value.isFinite else {
+                            throw RenderFailure("Accessor \(index) 的记录 \(i)、分量 \(c) 包含 NaN/Inf")
+                        }
+                        if accessor.normalized == true {
+                            switch accessor.componentType {
+                            case 5120: value = max(-1, value / 127)
+                            case 5121: value /= 255
+                            case 5122: value = max(-1, value / 32767)
+                            case 5123: value /= 65535
+                            default: throw RenderFailure("normalized 仅支持 8/16 位整数")
+                            }
+                        }
+                        record[c] = value
                     }
-                    return value
+                    output.append(record)
                 }
+                return output
             }
         }
+
         var result: [[Double]]
         if let viewID = accessor.bufferView {
             let view = try (container.document.bufferViews ?? []).gltfElement(viewID, "bufferView")

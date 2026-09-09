@@ -49,12 +49,16 @@ nonisolated struct SceneDescription {
         else {
             throw RenderFailure("缺少默认采样器或图片 ID 重复")
         }
+        let imageIDs = Set(images.map(\.id))
+        let samplerIDs = Set(samplers.map(\.id))
         for texture in textures {
-            if case .image(let id) = texture.source, !images.contains(where: { $0.id == id }) {
+            if case .image(let id) = texture.source, !imageIDs.contains(id) {
                 throw RenderFailure("纹理引用的图片不存在")
             }
         }
-        for material in materials { try material.validate(samplers: Set(samplers.map(\.id))) }
+        for material in materials { try material.validate(samplers: samplerIDs) }
+        // Intersect available UV flags per material slot once, not per instance and texture.
+        var slotAttributes: [[UInt32]] = []
         for m in meshes {
             guard !m.triangles.isEmpty else { throw RenderFailure("空网格") }
             for vertex in m.vertices {
@@ -68,22 +72,32 @@ nonisolated struct SceneDescription {
                     vertex.attributes & 16 == 0 || (vertex.color.min() >= 0 && vertex.color.max() <= 1)
                 else { throw RenderFailure("顶点属性、法线或切线无效") }
             }
+            var attributes = [UInt32](repeating: 31, count: m.materialSlotCount)
             for t in m.triangles {
                 guard t.indices.x < m.vertices.count, t.indices.y < m.vertices.count,
                     t.indices.z < m.vertices.count
                 else {
                     throw RenderFailure("网格索引越界")
                 }
+                attributes[Int(t.indices.w)] &=
+                    m.vertices[Int(t.indices.x)].attributes
+                    & m.vertices[Int(t.indices.y)].attributes & m.vertices[Int(t.indices.z)].attributes
             }
+            slotAttributes.append(attributes)
+        }
+        let requiredUV = materials.map { material in
+            material.bindings.reduce(UInt32(0)) { $0 | UInt32(4 << $1.texCoord) }
         }
         for i in instances {
             let t = i.transform
+            let inverse = t.inverse
+            let determinant = simd_determinant(t)
             guard meshes.indices.contains(i.mesh),
-                i.materials.count == meshes[i.mesh].materialSlotCount,
+                i.materials.count == slotAttributes[i.mesh].count,
                 i.materials.allSatisfy({ materials.indices.contains($0) }),
                 t.columns.0.w == 0, t.columns.1.w == 0, t.columns.2.w == 0, t.columns.3.w == 1,
-                simd_determinant(t).isFinite, simd_determinant(t) != 0,
-                [t.inverse.columns.0, t.inverse.columns.1, t.inverse.columns.2, t.inverse.columns.3]
+                determinant.isFinite, determinant != 0,
+                [inverse.columns.0, inverse.columns.1, inverse.columns.2, inverse.columns.3]
                     .allSatisfy({ v in v.x.isFinite && v.y.isFinite && v.z.isFinite && v.w.isFinite }),
                 [t.columns.0, t.columns.1, t.columns.2, t.columns.3].allSatisfy({
                     $0.x.isFinite && $0.y.isFinite && $0.z.isFinite && $0.w.isFinite
@@ -93,16 +107,10 @@ nonisolated struct SceneDescription {
             }
         }
         for instance in instances {
-            let mesh = meshes[instance.mesh]
-            for triangle in mesh.triangles {
-                let material = materials[instance.materials[Int(triangle.indices.w)]]
-                for binding in material.bindings {
-                    let mask = UInt32(4 << binding.texCoord)
-                    for index in [triangle.indices.x, triangle.indices.y, triangle.indices.z] {
-                        guard mesh.vertices[Int(index)].attributes & mask != 0 else {
-                            throw RenderFailure("材质引用了 Primitive 未提供的 UV 集")
-                        }
-                    }
+            for (slot, material) in instance.materials.enumerated() {
+                let mask = requiredUV[material]
+                guard slotAttributes[instance.mesh][slot] & mask == mask else {
+                    throw RenderFailure("材质引用了 Primitive 未提供的 UV 集")
                 }
             }
         }

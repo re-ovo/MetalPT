@@ -36,8 +36,10 @@ final class Renderer: NSObject, MTKViewDelegate {
         model.gpuName = context.device.name
     }
     /// Allocate the replacement before mutating state; failed imports keep the current snapshot.
-    func installImportedScene(_ description: SceneDescription) throws {
-        let replacement = try BindlessScene(context, description: description)
+    func installImportedScene(_ description: SceneDescription, textures: SceneTextureUpload.Prepared? = nil)
+        throws
+    {
+        let replacement = try BindlessScene(context, description: description, preparedTextures: textures)
         sceneGraph = nil
         sceneOverride = description
         scene = replacement

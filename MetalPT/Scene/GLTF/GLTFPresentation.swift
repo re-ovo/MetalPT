@@ -6,9 +6,22 @@ nonisolated enum GLTFPresentation {
         var result = input
         var low = SIMD3<Float>(repeating: .infinity)
         var high = SIMD3<Float>(repeating: -.infinity)
+        // Transform eight local bound corners per instance; shared vertices are scanned only once.
+        let bounds = input.meshes.map { mesh -> (SIMD3<Float>, SIMD3<Float>) in
+            var low = SIMD3<Float>(repeating: .infinity), high = SIMD3<Float>(repeating: -.infinity)
+            for vertex in mesh.vertices {
+                low = simd_min(low, vertex.position.xyz)
+                high = simd_max(high, vertex.position.xyz)
+            }
+            return (low, high)
+        }
         for instance in input.instances {
-            for vertex in input.meshes[instance.mesh].vertices {
-                let point = (instance.transform * vertex.position).xyz
+            let (a, b) = bounds[instance.mesh]
+            for corner in 0..<8 {
+                let local = SIMD4<Float>(
+                    corner & 1 == 0 ? a.x : b.x, corner & 2 == 0 ? a.y : b.y,
+                    corner & 4 == 0 ? a.z : b.z, 1)
+                let point = (instance.transform * local).xyz
                 low = simd_min(low, point)
                 high = simd_max(high, point)
             }

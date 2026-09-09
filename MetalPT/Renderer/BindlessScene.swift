@@ -39,7 +39,10 @@ final class BindlessScene {
         try self.init(context, description: ProceduralScene(kind: kind).description)
     }
 
-    init(_ context: MetalContext, description: SceneDescription, reusing previous: BindlessScene? = nil)
+    init(
+        _ context: MetalContext, description: SceneDescription, reusing previous: BindlessScene? = nil,
+        preparedTextures: SceneTextureUpload.Prepared? = nil
+    )
         throws
     {
         try description.validate()
@@ -158,7 +161,8 @@ final class BindlessScene {
         tlasHandle = registry.insert(tlas, name: "TLAS", kind: .accelerationStructure)
         scratchTLAS = try context.buffer(sizes.buildScratchBufferSize, "TLAS scratch")
         scratchHandle = registry.insert(scratchTLAS, name: "TLAS scratch")
-        let textureUpload = try SceneTextureUpload(context: context, scene: description, registry: registry)
+        let textureUpload = try SceneTextureUpload(
+            context: context, scene: description, registry: registry, prepared: preparedTextures)
         samplers = textureUpload.samplers
         var shading = textureUpload.handles
         let lights: [PTLight] = description.lights.map { light in

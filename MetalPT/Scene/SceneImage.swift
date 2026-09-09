@@ -39,10 +39,19 @@ nonisolated struct SceneImage {
             return true
         }
         guard drawn else { throw RenderFailure("图片像素转换失败") }
-        for p in stride(from: 0, to: rgba.count, by: 4) where rgba[p + 3] > 0 {
-            for c in 0..<3 {
-                rgba[p + c] = UInt8(
-                    min(255, (Int(rgba[p + c]) * 255 + Int(rgba[p + 3]) / 2) / Int(rgba[p + 3])))
+        // Opaque texels need no unpremultiplication; avoid three integer divisions per RGB pixel.
+        if image.alphaInfo != .none && image.alphaInfo != .noneSkipFirst && image.alphaInfo != .noneSkipLast {
+            rgba.withUnsafeMutableBufferPointer { bytes in
+                var p = 0
+                while p < bytes.count {
+                    let alpha = Int(bytes[p + 3])
+                    if alpha > 0 && alpha < 255 {
+                        for c in 0..<3 {
+                            bytes[p + c] = UInt8(min(255, (Int(bytes[p + c]) * 255 + alpha / 2) / alpha))
+                        }
+                    }
+                    p += 4
+                }
             }
         }
         try self.init(width: image.width, height: image.height, pixels: rgba)

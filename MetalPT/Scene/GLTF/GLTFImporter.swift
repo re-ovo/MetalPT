@@ -10,7 +10,11 @@ nonisolated struct GLTFImporter {
         "KHR_texture_transform", "KHR_materials_emissive_strength", "KHR_materials_transmission",
         "KHR_materials_pbrSpecularGlossiness",
     ]
-    func load() throws -> SceneDescription {
+    func load(reportWarning: (String) -> Void = { _ in }, checkCancellation: () throws -> Void = {}) throws
+        -> SceneDescription
+    {
+        var invalidTangents = 0
+        try checkCancellation()
         let missing = Set(document.extensionsRequired ?? []).subtracting(Self.supportedExtensions)
         guard missing.isEmpty else {
             throw RenderFailure("不支持必需扩展：\(missing.sorted().joined(separator: ", "))")
@@ -38,6 +42,7 @@ nonisolated struct GLTFImporter {
                     wrapU: try wrap(sampler.wrapS), wrapV: try wrap(sampler.wrapT)))
         }
         for image in document.images ?? [] {
+            try checkCancellation()
             let bytes: Data
             if let uri = image.uri, image.bufferView == nil {
                 bytes = try GLTFContainer.resolve(uri, baseURL: container.baseURL)
@@ -117,9 +122,11 @@ nonisolated struct GLTFImporter {
         var slots: [[MaterialID]] = []
         let reader = GLTFAccessor(container: container)
         for source in document.meshes ?? [] {
+            try checkCancellation()
             var mesh = SceneMesh()
             var materials: [MaterialID] = []
             for primitive in source.primitives {
+                try checkCancellation()
                 guard primitive.targets?.isEmpty ?? true else { throw RenderFailure("暂不支持 morph targets") }
                 guard let position = primitive.attributes["POSITION"] else {
                     throw RenderFailure("primitive 缺少 POSITION")
@@ -145,10 +152,21 @@ nonisolated struct GLTFImporter {
                     guard accessor.componentType == 5126 || accessor.normalized == true else {
                         throw RenderFailure("\(name) 整数属性必须 normalized")
                     }
-                    let values = try reader.decode(index, types: types, components: components)
+                    let values = try reader.decode(
+                        index, types: types, components: components, allowNonFinite: name == "TANGENT")
                     guard values.count == vertices.count else { throw RenderFailure("顶点属性数量不一致") }
                     for i in vertices.indices {
                         let v = values[i].map(Float.init)
+                        if name == "TANGENT" {
+                            let direction = SIMD3<Float>(v[0], v[1], v[2])
+                            let length = simd_length(direction)
+                            // Keep finite defaults but omit the attribute, so affected triangles use UV derivatives.
+                            guard v.allSatisfy(\.isFinite), length.isFinite, length > 1e-8, abs(v[3]) == 1
+                            else {
+                                invalidTangents += 1
+                                continue
+                            }
+                        }
                         vertices[i].attributes |= flag
                         switch name {
                         case "NORMAL": vertices[i].normal = [v[0], v[1], v[2], 0]
@@ -211,8 +229,12 @@ nonisolated struct GLTFImporter {
             for child in node.children ?? [] { try append(child, parent: id, depth: depth + 1) }
         }
         for root in roots { try append(root, parent: nil, depth: 0) }
+        try checkCancellation()
         let result = try graph.compile()
         guard !result.instances.isEmpty else { throw RenderFailure("场景没有可渲染的三角形实例") }
+        if invalidTangents > 0 {
+            reportWarning("已忽略 \(invalidTangents) 条无效切线，受影响三角形改用 UV 重建切线空间")
+        }
         return result
     }
 

@@ -104,10 +104,10 @@ nonisolated extension Data {
         guard offset >= 0, length >= 0, offset <= count, length <= count - offset else {
             throw RenderFailure("glTF 二进制范围越界")
         }
-        return subdata(in: offset..<(offset + length))
+        return self[(startIndex + offset)..<(startIndex + offset + length)]
     }
     func gltfUInt(_ offset: Int, bytes: Int) throws -> UInt32 {
-        guard offset >= 0, offset <= count, bytes <= count - offset else {
+        guard offset >= 0, offset <= count, (1...4).contains(bytes), bytes <= count - offset else {
             throw RenderFailure("glTF 数值读取越界")
         }
         var result: UInt32 = 0

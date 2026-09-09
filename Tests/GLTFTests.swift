@@ -56,6 +56,17 @@ import simd
             try GLTFImporter(container: GLTFContainer(data: glb(json), baseURL: URL(fileURLWithPath: "/tmp")))
                 .load()
         }
+        let cancellationContainer = try GLTFContainer(data: glb(json), baseURL: URL(fileURLWithPath: "/tmp"))
+        var checkpoints = 0
+        do {
+            _ = try GLTFImporter(container: cancellationContainer).load(checkCancellation: {
+                checkpoints += 1
+                if checkpoints == 2 { throw CancellationError() }
+            })
+            fatalError("Cancelled mesh import continued")
+        } catch is CancellationError {
+            assert(checkpoints == 2, "Importer cancellation checkpoint")
+        }
         let scene = try load(json)
         assert(scene.meshes.count == 1 && scene.instances.count == 2, "mesh sharing")
         assert(scene.instances[1].transform.columns.3 == SIMD4<Float>(3, 2, 0, 1), "hierarchy TRS")
@@ -100,6 +111,66 @@ import simd
         textured["meshes"] = [
             ["primitives": [["attributes": ["POSITION": 0, "TEXCOORD_0": 2], "indices": 1, "material": 0]]]
         ]
+        // Exporters can produce NaN or zero tangents for degenerate UVs. Keep valid records only.
+        let savedBinary = binary
+        let tangentOffset = binary.count
+        for values: [Float] in [[1, 0, 0, 1], [.nan, .nan, .nan, 0], [0, 0, 0, 1]] {
+            for value in values { word(value.bitPattern) }
+        }
+        var tangentAsset = textured
+        var tangentViews = views
+        tangentViews.append(["buffer": 0, "byteOffset": tangentOffset, "byteLength": 48])
+        var tangentAccessors = accessors
+        tangentAccessors.append([
+            "bufferView": tangentViews.count - 1, "componentType": 5126, "count": 3, "type": "VEC4",
+        ])
+        tangentAsset["buffers"] = [["byteLength": binary.count]]
+        tangentAsset["bufferViews"] = tangentViews
+        tangentAsset["accessors"] = tangentAccessors
+        tangentAsset["meshes"] = [
+            [
+                "primitives": [
+                    [
+                        "attributes": [
+                            "POSITION": 0, "TEXCOORD_0": 2, "TANGENT": tangentAccessors.count - 1,
+                        ], "indices": 1, "material": 0,
+                    ]
+                ]
+            ]
+        ]
+        tangentAsset["materials"] = [
+            [
+                "pbrMetallicRoughness": ["metallicFactor": 0], "normalTexture": ["index": 0],
+                "doubleSided": true,
+            ]
+        ]
+        let tangentContainer = try GLTFContainer(
+            data: glb(tangentAsset), baseURL: URL(fileURLWithPath: "/tmp"))
+        var tangentWarnings: [String] = []
+        let repaired = try GLTFImporter(container: tangentContainer).load(reportWarning: {
+            tangentWarnings.append($0)
+        })
+        let repairedVertices = repaired.meshes[0].vertices
+        assert(
+            repairedVertices[0].attributes & 2 != 0 && repairedVertices[0].tangent == SIMD4(1, 0, 0, 1),
+            "Valid tangent preserved")
+        assert(
+            repairedVertices[1].attributes & 2 == 0 && repairedVertices[2].attributes & 2 == 0,
+            "Invalid tangent must trigger UV derivative fallback, not a fabricated authored frame")
+        assert(
+            repairedVertices.allSatisfy {
+                $0.tangent.x.isFinite && $0.tangent.y.isFinite && $0.tangent.z.isFinite
+            }, "No NaN reaches GPU upload")
+        assert(tangentWarnings.count == 1 && tangentWarnings[0].contains("2 条"), "Tangent repair is reported")
+        try glb(tangentAsset).write(to: URL(fileURLWithPath: "/tmp/invalid-tangent-fixture.glb"))
+        let tangentIndex = tangentAccessors.count - 1
+        reject {
+            _ = try GLTFAccessor(container: tangentContainer).decode(
+                tangentIndex, types: ["VEC4"], components: [5126])
+        }
+        binary.replaceSubrange(0..<4, with: [0, 0, 192, 127])
+        reject { _ = try load(tangentAsset) }  // POSITION NaN remains a hard failure.
+        binary = savedBinary
         var sgAsset = textured
         sgAsset["extensionsRequired"] = ["KHR_materials_pbrSpecularGlossiness"]
         sgAsset["materials"] = [
@@ -193,6 +264,12 @@ import simd
         var truncated = try glb(json); truncated.removeLast()
         reject { _ = try GLTFContainer(data: truncated, baseURL: URL(fileURLWithPath: "/tmp")) }
         reject { _ = try GLTFContainer.resolve("../secret", baseURL: URL(fileURLWithPath: "/tmp/model")) }
+        // A nonzero Data slice start must still use relative GLB offsets.
+        let valid = try glb(json)
+        let prefixed = Data(repeating: 99, count: 17) + valid
+        let sliced = prefixed[17..<prefixed.count]
+        _ = try GLTFImporter(container: GLTFContainer(data: sliced, baseURL: URL(fileURLWithPath: "/tmp")))
+            .load()
         // Sparse replacement overlays the zero-initialized accessor.
         json["accessors"] = [
             [

@@ -126,6 +126,7 @@ kernel void validateSurfaceAssets(constant PTScene &s [[buffer(0)]],
     w.radiance[31] = float4(reflections / 16384, etaError, weightError, eventError);
     BSDFSample tir = sampleSurfaceBSDF(glass, n, normalize(float3(0.99f, 0, 0.1f)), glassRNG, false);
     w.radiance[32] = float4(tir.pdf, tir.eta, tir.transmitted, tir.delta);
+    w.radiance[33] = surfaceHit(s, 4, 0, float2(0.2f, 0.3f), 1, float3(0, 0, -1)).shadingNormal;
 }
 
 kernel void validateCoverage(constant PTScene &s [[buffer(0)]],

@@ -1,0 +1,27 @@
+{
+  "blasBuildPasses" : 1,
+  "depth" : 8,
+  "device" : "Apple M4",
+  "failedImportPreservedScene" : true,
+  "gpuMsMedian" : 12.747500091791153,
+  "image" : {
+    "litFraction" : 0.036718750000000001,
+    "meanRGB" : 0.0268223720043573
+  },
+  "importTimingsMs" : {
+    "containerMs" : 26.476083323359489,
+    "decodeCompileMs" : 2995.0096248649061,
+    "installMs" : 798.75308345071971,
+    "presentationMs" : 426.4914165250957,
+    "queueWaitMs" : 0.052541494369506836,
+    "texturesMs" : 21.137791452929378,
+    "totalMs" : 4268.5276665724814
+  },
+  "instanceCount" : 3620,
+  "meshCount" : 822,
+  "nonFinite" : 0,
+  "queueOverflow" : 0,
+  "resolution" : "160 × 120",
+  "spp" : 4,
+  "staleRequestDiscarded" : true
+}
