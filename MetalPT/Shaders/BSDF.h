@@ -20,12 +20,40 @@ inline float3 goldFresnel(float cosine) {
 }
 
 inline float ggxD(float nh, float alpha) {
-    float d = nh * nh * (alpha * alpha - 1) + 1;
+    // Avoid cancellation at nh=1 and small alpha.
+    float d = max(0.0f, 1 - nh * nh) + nh * nh * alpha * alpha;
     return alpha * alpha / (PI * d * d);
 }
 
 inline float ggxG1(float nv, float a) {
     return 2 * nv / max(nv + sqrt(a * a + (1 - a * a) * nv * nv), 1e-7f);
+}
+
+// Isotropic GGX visible-normal sampling (Heitz projected-disk construction).
+// Stretch the outgoing direction, sample its visible hemisphere, then unstretch the normal.
+inline float3 sampleGGXVNDF(float3 n, float3 wo, float alpha, float u, float v) {
+    float3 tangent = normalize(cross(abs(n.z) < 0.999f ? float3(0, 0, 1) : float3(0, 1, 0), n));
+    float3 bitangent = cross(n, tangent);
+    float3 view = normalize(float3(alpha * dot(wo, tangent), alpha * dot(wo, bitangent), dot(wo, n)));
+    float lensq = view.x * view.x + view.y * view.y;
+    float3 t1 = lensq > 0 ? float3(-view.y, view.x, 0) * rsqrt(lensq) : float3(1, 0, 0);
+    float3 t2 = cross(view, t1);
+    float radius = sqrt(u), phi = 2 * PI * v;
+    float x = radius * cos(phi), y = radius * sin(phi);
+    float blend = 0.5f * (1 + view.z);
+    y = (1 - blend) * sqrt(max(0.0f, 1 - x * x)) + blend * y;
+    float3 projected = x * t1 + y * t2 + sqrt(max(0.0f, 1 - x * x - y * y)) * view;
+    float3 local = normalize(float3(alpha * projected.x, alpha * projected.y, max(0.0f, projected.z)));
+    return local.x * tangent + local.y * bitangent + local.z * n;
+}
+
+// p(h|wo)=D(h)G1(wo)(wo.h)/(n.wo); reflection Jacobian cancels 4(wo.h).
+// Rejected lower-hemisphere reflections remain null events: do not renormalize this PDF.
+inline float ggxVNDFReflectionPDF(float nh, float no, float alpha) {
+    if (nh <= 0 || no <= 0)
+        return 0;
+    float a2 = alpha * alpha;
+    return ggxD(nh, alpha) / (2 * (no + sqrt(a2 + (1 - a2) * no * no)));
 }
 
 inline float3 schlickFresnel(float3 f0, float cosine) {
@@ -56,7 +84,7 @@ inline float3 evaluateBSDF(SurfaceParameters b, float3 n, float3 wo, float3 wi, 
     float nh = max(0.0f, dot(n, h)), oh = max(0.0f, dot(wo, h));
     // A finite roughness floor avoids treating a near-delta lobe as an ordinary finite PDF.
     float a = b.alpha, d = ggxD(nh, a);
-    float specularPDF = d * nh / max(4 * oh, 1e-7f);
+    float specularPDF = ggxVNDFReflectionPDF(nh, no, a);
     float3 fresnel = schlickFresnel(b.f0, oh);
     float3 diffuse = b.diffuseColor * (1 - transmission) / PI;
     if (b.diffuseFresnel)
@@ -79,6 +107,8 @@ inline float3 evaluateBSDF(SurfaceParameters b, float3 n, float3 wo, float3 wi, 
 }
 
 inline float3 sampleBSDF(SurfaceParameters b, float3 n, float3 wo, thread uint &rng) {
+    if (dot(n, wo) <= 0)
+        return float3(0);
     float probability = b.specularProbability;
     float choice = random(rng);
     bool specular = choice < probability;
@@ -86,10 +116,7 @@ inline float3 sampleBSDF(SurfaceParameters b, float3 n, float3 wo, thread uint &
     float u = random(rng), v = random(rng);
     if (!specular && !transmitted)
         return localToWorld(float3(sqrt(u) * cos(2 * PI * v), sqrt(u) * sin(2 * PI * v), sqrt(1 - u)), n);
-    float a = b.alpha;
-    float cosTheta = sqrt((1 - u) / (1 + (a * a - 1) * u));
-    float sinTheta = sqrt(max(0.0f, 1 - cosTheta * cosTheta));
-    float3 h = localToWorld(float3(sinTheta * cos(2 * PI * v), sinTheta * sin(2 * PI * v), cosTheta), n);
+    float3 h = sampleGGXVNDF(n, wo, b.alpha, u, v);
     float3 reflected = reflect(-wo, h);
     // Reject microfacets whose sampled reflection leaves the reflection hemisphere.
     if (dot(n, reflected) <= 0)

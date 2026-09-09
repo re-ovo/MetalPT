@@ -31,7 +31,7 @@ final class MetalContext {
         for name in [
             "initialize", "prepareBounce", "intersectPaths", "shadePaths", "prepareShadow", "traceShadows",
             "finishBounce", "accumulate", "displayImage", "validateRGB", "validateSurfaceAssets",
-            "validateCoverage", "validateTransmission",
+            "validateCoverage", "validateTransmission", "validateVNDF",
         ] {
             let f = MTL4LibraryFunctionDescriptor()
             f.library = l

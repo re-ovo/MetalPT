@@ -34,7 +34,7 @@ Sampler GPU ID 表由场景根访问，SamplerState 随场景快照保留；buff
 
 几何法线负责朝向、偏移和玻璃介质边界；插值法线经逆转置变换用于非 delta BSDF。负缩放修正几何朝向和切线手性，矩形灯法线采用同一约定。法线贴图使用线性 RGB，XY 乘 normalScale；UV 变换或非 UV0 贴图使用对应 UV 导数建立切线空间。折射仍使用几何法线，避免改变封闭介质边界。
 
-PBR 使用 Lambert + GGX/Smith/Schlick：metallic 混合介电质 F0=0.04 与基色反射率，roughness 映射为 GGX alpha=roughness²（数值下限 0.001）。采样和 NEE 使用相同的漫反射/镜面混合 PDF。黄金使用 RGB F0=(1, 0.71, 0.29) 的 Schlick 近似。Specular-Glossiness 保留独立 RGB F0，以 `diffuse * (1 - max(F0))` 构造漫反射项，以 `(1 - glossiness)²` 构造 GGX alpha；该工作流不再回退为默认金属。SG 镜面纹理 RGB 使用 sRGB 视图，alpha 是线性光泽度。
+PBR 使用 Lambert + GGX/Smith/Schlick：metallic 混合介电质 F0=0.04 与基色反射率，roughness 映射为 GGX alpha=roughness²（数值下限 0.001）。GGX 使用依赖出射方向的可见法线采样（VNDF）；采样和 NEE 使用相同的漫反射/镜面混合 PDF。黄金使用 RGB F0=(1, 0.71, 0.29) 的 Schlick 近似。Specular-Glossiness 保留独立 RGB F0，以 `diffuse * (1 - max(F0))` 构造漫反射项，以 `(1 - glossiness)²` 构造 GGX alpha；该工作流不再回退为默认金属。SG 镜面纹理 RGB 使用 sRGB 视图，alpha 是线性光泽度。
 
 发光是所有表面的附加属性，`absorbing` 表面可用于只发光、不反射的灯。
 

@@ -61,3 +61,11 @@ CPU `SceneMaterial.Surface` 保留 Metallic-Roughness 和 Specular-Glossiness �
 所有灯光共同参与均匀选择；矩形灯使用立体角 PDF 与 MIS，delta 光源使用离散选择概率和 MIS 权重 1。点/聚光的强度单位为 cd，平行光为 lux；输出采用现有曝光与色调映射。距离衰减、范围平滑截断和聚光过渡依据 [Khronos KHR_lights_punctual](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_lights_punctual) 的定义。三种解析灯光均产生硬阴影；发光点本身不作为可见几何或镜面命中目标。
 
 编辑只创建新灯光表和场景根表，复用所有几何、纹理及加速结构。新的资源句柄替换对应 pass 依赖，其余句柄保持不变。旧帧持有旧快照直至 GPU 完成，避免 CPU 写入正在使用的缓冲；编辑触发累积失效。当前灯光编辑只保存在内存中，切换或重新导入场景会重置，尚无保存/导出功能。
+
+## GGX VNDF 采样
+
+MR、SG 与黄金的有限粗糙度分量使用各向同性 GGX 可见法线采样，采用伸缩出射方向、可见半球投影圆盘采样、逆伸缩法线的构造。方法依据 [PBRT 的可见法线采样说明](https://www.pbr-book.org/4ed/Reflection_Models/Roughness_Using_Microfacet_Theory#SamplingtheDistributionofVisibleNormals)。粗糙度映射、Fresnel 和现有可分离 Smith 遮蔽模型保持不变。
+
+半向量密度为 `p(h|wo) = D(h) G1(wo) max(wo·h, 0) / (n·wo)`；反射方向 PDF 经雅可比约简为 `D(h) G1(wo) / (4 n·wo)`。实现使用等价的稳定表达式避免掠射角除法。混合分量概率继续进入最终 PDF；薄表面透射沿用折叠反射方向的单位雅可比，与反射共同使用 VNDF。下半球的无效反射作为零贡献事件，不重复采样，也不重新归一化 PDF。理想玻璃和光滑透射的 delta 分支不变。
+
+GGX D 分母写成 `(1 − nh²) + nh² alpha²`，避免低粗糙度、法线附近的减法精度损失。没有加入能量限幅或降噪。数值、方差与图像验证见 [VNDF 验证](validation/vndf.md)。

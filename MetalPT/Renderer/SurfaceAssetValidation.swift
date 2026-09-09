@@ -143,6 +143,22 @@ enum SurfaceAssetValidation {
                 && values[31].w == 0,
             "Unified glass sampling lost Fresnel probabilities, eta compensation or event flags")
         try require(close(values[32], [1, 1, 0, 1]), "Unified glass sampling lost total internal reflection")
+        let vndf = try await renderer.validateNumerics(kernel: "validateVNDF", count: 5)
+        try require(
+            vndf.allSatisfy { $0.x.isFinite && $0.y.isFinite && $0.z.isFinite && $0.w.isFinite },
+            "VNDF diagnostics nonfinite")
+        try require(
+            abs(vndf[0].x - vndf[0].y) < 0.025 && vndf[0].z <= 1.002,
+            "VNDF changed furnace energy or exceeded bounded conductor weight: \(vndf)")
+        try require(vndf[1].x < vndf[1].y * 0.25, "VNDF did not reduce grazing furnace variance")
+        for i in 2...3 {
+            try require(
+                abs(vndf[i].x - vndf[i].y) < 0.015 && abs(vndf[i].z) < 0.015 && abs(vndf[i].w) < 0.015,
+                "VNDF reflection/transmission mixture disagrees with quadrature: \(vndf)")
+        }
+        try require(
+            vndf[4].x == 0 && vndf[4].y <= 1.01,
+            "VNDF low roughness/grazing/rotated-frame instability: \(vndf)")
         var reordered = scene
         reordered.materials[0].baseColorTexture!.sampler = scene.samplers[2].id
         reordered.textures = [scene.textures[0], scene.textures[2], scene.textures[1]]
@@ -231,6 +247,7 @@ enum SurfaceAssetValidation {
         renderer.sceneOverride = nil
         return [
             "specularGlossiness": values[26...30].map { [$0.x, $0.y, $0.z, $0.w] },
+            "ggxVNDF": vndf.map { [$0.x, $0.y, $0.z, $0.w] },
             "unifiedGlass": values[31...32].map { [$0.x, $0.y, $0.z, $0.w] },
             "passed": true, "textureViews": true, "stableTextureBindings": true, "samplers": true,
             "normalFrames": true,
