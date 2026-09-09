@@ -30,28 +30,27 @@ final class FrameSlot {
     }
 }
 
-/// Per-slot pool: only accessed after the slot completes. Budget limits cached, not live, memory.
+/// Per-slot pool: only accessed after the slot completes. Retains the current frame's working set.
 final class TransientPool {
     struct Key: Hashable { private let value = UUID() }
     let context: MetalContext
     private var buffers: [Key: MTLBuffer] = [:]
     private var textures: [Key: (TextureDescription, MTLTexture)] = [:]
     private var touched = Set<Key>()
-    let budget = 256 * 1024 * 1024
     var cachedBytes: Int {
         buffers.values.reduce(0) { $0 + $1.length } + textures.values.reduce(0) { $0 + $1.1.allocatedSize }
     }
     init(_ context: MetalContext) { self.context = context }
     func beginFrame() { touched.removeAll() }
     func trim() {
+        // Retire unused keys, but keep the active working set even at large resolutions.
+        // Evicting active allocations here would force their recreation on every slot reuse.
         for key in Array(buffers.keys) where !touched.contains(key) {
             buffers.removeValue(forKey: key)
         }
         for key in Array(textures.keys) where !touched.contains(key) {
             textures.removeValue(forKey: key)
         }
-        // Resolved frame resources retain these allocations independently of the cache.
-        if cachedBytes > budget { buffers.removeAll(); textures.removeAll() }
     }
     func buffer(_ key: Key, label name: String, length: Int, shared: Bool = false) throws -> MTLBuffer {
         guard touched.insert(key).inserted else { throw RenderFailure("资源在同一帧被重复租用：\(name)") }
