@@ -6,7 +6,7 @@
 - `Renderer/` separates orchestration (`Renderer`), pass ordering (`PathTracingPasses`), individual pass declarations (`Passes/`), frame resources, camera/state, Render Graph, and GPU scene upload (`BindlessScene`). Paths are relative to `MetalPT/`.
 - `Scene/` contains a stable-ID scene graph, mesh-local material slots, typed materials, compiled instance/light descriptions, CPU geometry, image/texture/sampler assets, demos, and glTF import. `Renderer/Shared.h` defines the CPU/GPU ABI.
 - `Shaders/` separates sampling and RGB BSDF headers from per-stage `.metal` files (camera, intersection, shading, shadows, queues, accumulation, display, validation). Shared shader helpers must be inline to avoid duplicate definitions.
-- `Resources/` holds historical data attribution/licenses; `Assets.xcassets` holds app assets. `Tests/`, `scripts/`, and `docs/validation/` contain tests, workflows, and outputs at repository root.
+- `Resources/` holds the resource files; `Assets.xcassets` holds app assets. `Tests/`, `scripts/`, and `docs/validation/` contain tests, workflows, and outputs at repository root.
 
 ## Build, Test, and Development Commands
 
@@ -19,10 +19,10 @@ xcodebuild -project MetalPT.xcodeproj -scheme MetalPT \
 scripts/test-graph.sh
 scripts/validate-gpu.sh validation
 scripts/validate-gpu.sh capture
-SPECTRAL_SPP=512 scripts/validate-gpu.sh release
+METALPT_SPP=512 scripts/validate-gpu.sh release
 ```
 
-These commands build, test graph/ABI, validate GPU execution, capture frames, and measure Release rendering. Set `SPECTRAL_OUTPUT` to choose the report directory. Run capture and Shader Validation separately.
+These commands build, test graph/ABI, validate GPU execution, capture frames, and measure Release rendering. Set `METALPT_OUTPUT` to choose the report directory. Run capture and Shader Validation separately.
 
 ## Coding Style & Naming Conventions
 
@@ -35,9 +35,3 @@ Declare every pass resource access and GPU stage through its typed inputs in Ren
 Graph tests are standalone Swift assertions, not XCTest. Keep graph/ABI checks in `Tests/RenderGraphTests.swift`, hierarchy/material-binding checks in `Tests/SceneGraphTests.swift`, and primitive/image/binding checks in `Tests/SurfaceAssetTests.swift`, with descriptive failure messages. GPU integration checks live in `ValidationRunner.swift` and execute production shaders.
 
 Cover changed behavior with graph/ABI checks or deterministic GPU scenarios. For rendering changes, inspect images and record resolution, spp, depth, hardware, and validation status. There is no percentage coverage target. Simple changes do not require permanent unit-test code.
-
-## Commit & Pull Request Guidelines
-
-Use Conventional Commit types with concise Chinese subjects, such as `refactor(renderer): 拆分资源管理模块`. Preserve unrelated working-tree changes.
-
-PRs should explain the problem, resulting behavior, validation commands, and limitations. Link relevant issues and include before/after images for visual changes. Keep build products and large `.gputrace` bundles outside the repository. Preserve data attribution in `Resources/NOTICE.md`.

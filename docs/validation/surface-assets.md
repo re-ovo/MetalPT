@@ -9,8 +9,8 @@ Debug 与 Release 构建通过；`scripts/test-graph.sh` 通过。Debug 开启 `
 ```sh
 xcodebuild -project SpectralPT.xcodeproj -scheme SpectralPT -configuration Debug \
   -derivedDataPath /tmp/SpectralPT-pbr CODE_SIGNING_ALLOWED=NO build
-MTL_DEBUG_LAYER=1 MTL_SHADER_VALIDATION=1 SPECTRAL_VALIDATE=1 SPECTRAL_SPP=32 \
-  SPECTRAL_OUTPUT=/tmp/SpectralPT-pbr-final \
+MTL_DEBUG_LAYER=1 MTL_SHADER_VALIDATION=1 METALPT_VALIDATE=1 METALPT_SPP=32 \
+  METALPT_OUTPUT=/tmp/SpectralPT-pbr-final \
   /tmp/SpectralPT-pbr/Build/Products/Debug/SpectralPT.app/Contents/MacOS/SpectralPT
 ```
 

@@ -15,7 +15,7 @@
 - Debug 构建通过。
 - `scripts/test-graph.sh` 通过：相机原地环顾、俯仰限制、水平移动、对角速度、投影基底；层级顺序、节点 ID、隐藏节点实例映射，以及已有 Graph / ABI 测试。
 - `scripts/test-gltf.sh` 通过：导入层级与查看灯光元数据保留，以及既有导入检查。
-- `SPECTRAL_SPP=16 SPECTRAL_OUTPUT=/tmp/MetalPT-ui-validation scripts/validate-gpu.sh validation` 通过。输出 640×480，渲染比例 50%，深度 8；表面画廊 32 spp。检查 Cornell 图像，未发现相机基底或投影异常。结果见 [ui-fps-regression.json](ui-fps-regression.json)。
+- `METALPT_SPP=16 METALPT_OUTPUT=/tmp/MetalPT-ui-validation scripts/validate-gpu.sh validation` 通过。输出 640×480，渲染比例 50%，深度 8；表面画廊 32 spp。检查 Cornell 图像，未发现相机基底或投影异常。结果见 [ui-fps-regression.json](ui-fps-regression.json)。
 - 实际窗口检查：工具栏暂停、场景树搜索、节点选择及统计显示；从场景菜单导入层级 fixture 后展开 Node 0，正确显示 Node 1 / Node 2 和两个独立查看灯光。
 
 本轮未重新加载完整 Bistro；导入数据和渲染路径沿用之前已验证的实现，仅新增 CPU 层级元数据。

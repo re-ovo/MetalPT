@@ -9,10 +9,10 @@ enum ValidationRunner {
         renderer.model.denoiseEnabled = false  // Existing reference tests inspect unfiltered transport.
         let env = ProcessInfo.processInfo.environment
         let folder = URL(
-            fileURLWithPath: env["SPECTRAL_OUTPUT"] ?? "/tmp/MetalPT-validation", isDirectory: true)
+            fileURLWithPath: env["METALPT_OUTPUT"] ?? "/tmp/MetalPT-validation", isDirectory: true)
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            let samples = Int(env["SPECTRAL_SPP"] ?? "64") ?? 64
+            let samples = Int(env["METALPT_SPP"] ?? "64") ?? 64
             let d = renderer.context.device
             func texture(_ w: Int, _ h: Int) throws -> MTLTexture {
                 let td = MTLTextureDescriptor.texture2DDescriptor(
@@ -24,15 +24,15 @@ enum ValidationRunner {
                 }
                 return t
             }
-            let outputWidth = max(16, Int(env["SPECTRAL_WIDTH"] ?? "640") ?? 640)
-            let outputHeight = max(16, Int(env["SPECTRAL_HEIGHT"] ?? "480") ?? 480)
+            let outputWidth = max(16, Int(env["METALPT_WIDTH"] ?? "640") ?? 640)
+            let outputHeight = max(16, Int(env["METALPT_HEIGHT"] ?? "480") ?? 480)
             let output = try texture(outputWidth, outputHeight)
-            if env["SPECTRAL_TRANSMISSION_VALIDATE"] != nil {
+            if env["METALPT_TRANSMISSION_VALIDATE"] != nil {
                 try await TransmissionValidation.run(renderer, output: output, folder: folder)
                 NSApplication.shared.terminate(nil)
                 return
             }
-            if let path = env["SPECTRAL_GLTF"] {
+            if let path = env["METALPT_GLTF"] {
                 try await GLTFValidation.run(
                     renderer, url: URL(fileURLWithPath: path), output: output,
                     samples: samples, folder: folder)
@@ -61,7 +61,7 @@ enum ValidationRunner {
                 renderer.model.scene = kind
                 var gpuTimes: [Double] = []
                 for i in 0..<samples {
-                    if i == 2 && kind == .cornell && env["SPECTRAL_CAPTURE"] != nil {
+                    if i == 2 && kind == .cornell && env["METALPT_CAPTURE"] != nil {
                         let desc = MTLCaptureDescriptor()
                         desc.captureObject = d
 
@@ -147,7 +147,7 @@ enum ValidationRunner {
             try renderer.lastGraph.write(
                 to: folder.appendingPathComponent("render-graph.txt"), atomically: true, encoding: .utf8)
             report["frameResources"] = renderer.lastFrameStats
-            if env["SPECTRAL_PROFILE"] == "1" {
+            if env["METALPT_PROFILE"] == "1" {
                 guard !renderer.lastPassTimings.isEmpty,
                     renderer.lastPassTimings.values.allSatisfy({ $0.isFinite && $0 >= 0 })
                 else {

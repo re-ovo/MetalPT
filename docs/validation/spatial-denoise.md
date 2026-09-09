@@ -10,7 +10,7 @@
 
 - Debug 构建通过。
 - `scripts/test-graph.sh` 通过，包含 PTWork 新大小 104、新增指针偏移 64/88/96 的断言及已有图/资产检查。
-- `SPECTRAL_SPP=16 SPECTRAL_OUTPUT=/tmp/MetalPT-denoise-fix-validation scripts/validate-gpu.sh validation` 通过，报告见 [spatial-denoise-regression.json](spatial-denoise-regression.json)。已有生产 BSDF、灯光、场景和 pass 绑定回归使用未滤波输出，均通过。
+- `METALPT_SPP=16 METALPT_OUTPUT=/tmp/MetalPT-denoise-fix-validation scripts/validate-gpu.sh validation` 通过，报告见 [spatial-denoise-regression.json](spatial-denoise-regression.json)。已有生产 BSDF、灯光、场景和 pass 绑定回归使用未滤波输出，均通过。
 - 降噪专项使用 Cornell，640×480 输出，320×240 内部渲染，深度 8，输入 8 spp；同一份累积分别打开、关闭降噪，参考为原始 256 spp。强度 0.6。
 - 显示空间 RGB MSE：原图 0.010258，滤波后 0.004158，降低约 59.5%。这是该场景和参数的结果，不是所有场景的画质保证，且 256 spp 参考仍有噪声。
 - 逐字节验证：暂停时开关降噪再关闭，原图完全一致；采样数不变。关闭时图中无降噪 pass，开启时主射线引导与三个滤波 pass 均存在。

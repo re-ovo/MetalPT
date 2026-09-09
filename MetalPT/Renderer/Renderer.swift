@@ -175,11 +175,11 @@ final class Renderer: NSObject, MTKViewDelegate {
         ]
         let counts = try? resolved.buffer(frame.handles.counts)
         let profiler =
-            ProcessInfo.processInfo.environment["SPECTRAL_PROFILE"] == "1"
+            ProcessInfo.processInfo.environment["METALPT_PROFILE"] == "1"
             ? try GraphProfiler(device: context.device, names: compiled.order.map { graph.passes[$0].name })
             : nil
         lastGraph = try graph.dump(compiled)
-        if firstGraphDump && ProcessInfo.processInfo.environment["SPECTRAL_DUMP_GRAPH"] != nil {
+        if firstGraphDump && ProcessInfo.processInfo.environment["METALPT_DUMP_GRAPH"] != nil {
             print(lastGraph)
             firstGraphDump = false
         }

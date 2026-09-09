@@ -12,8 +12,8 @@
 
 ```sh
 scripts/test-gltf.sh
-SPECTRAL_GLTF=/absolute/path/model.glb SPECTRAL_SPP=32 scripts/validate-gpu.sh validation
-SPECTRAL_GLTF=/absolute/path/model.glb SPECTRAL_SPP=32 scripts/validate-gpu.sh capture
+METALPT_GLTF=/absolute/path/model.glb METALPT_SPP=32 scripts/validate-gpu.sh validation
+METALPT_GLTF=/absolute/path/model.glb METALPT_SPP=32 scripts/validate-gpu.sh capture
 ```
 
 CPU 测试生成 `/tmp/spectral-import-fixture.glb`，覆盖交错数据、normalized UV、sparse、内嵌 PNG、外部 buffer、共享实例及无效数据。GPU 入口使用实际异步加载和场景安装流程，验证旧请求丢弃、失败保留场景、批量 BLAS 构建及 TLAS 屏障。Capture 与 Shader Validation 分开运行。
@@ -37,7 +37,7 @@ CPU 测试生成 `/tmp/spectral-import-fixture.glb`，覆盖交错数据、norma
 透射专项验证：
 
 ```sh
-SPECTRAL_TRANSMISSION_VALIDATE=1 SPECTRAL_WIDTH=320 SPECTRAL_HEIGHT=240 scripts/validate-gpu.sh validation
+METALPT_TRANSMISSION_VALIDATE=1 METALPT_WIDTH=320 METALPT_HEIGHT=240 scripts/validate-gpu.sh validation
 ```
 
 本机 M4 的 API / Shader Validation 已通过纹理 R 通道、光滑能量、着色、金属不透射、粗糙采样 PDF，以及 opaque / partial / clear / rough 四组 128 spp 对照图。数值记录见 `docs/validation/transmission.json`。用户新版 GLASS.glb 已通过 64 spp 导入渲染验证。
@@ -54,7 +54,7 @@ diffuseTexture 的 RGB 经 sRGB 解码并乘顶点颜色，alpha 用于 OPAQUE/M
 
 ## 加载性能诊断
 
-设置 `SPECTRAL_IMPORT_PROFILE=1` 会输出队列等待、容器读取、解析/编译、自动取景、纹理准备、主线程安装与总耗时（毫秒）；glTF GPU 验证报告包含同样的 `importTimingsMs`。总耗时到场景安装完成为止，不包含首帧 BLAS/TLAS 构建。
+设置 `METALPT_IMPORT_PROFILE=1` 会输出队列等待、容器读取、解析/编译、自动取景、纹理准备、主线程安装与总耗时（毫秒）；glTF GPU 验证报告包含同样的 `importTimingsMs`。总耗时到场景安装完成为止，不包含首帧 BLAS/TLAS 构建。
 
 纹理仅为实际使用的颜色空间创建 mip 链，未使用的表项指向白色回退。颜色/数据同时使用时保留两套独立 mip；不再无条件为每张图片分配两套。后台上传使用独立 Metal blit 队列，并等待完成后将纹理登记为已初始化的场景资源。1×1 纹理跳过 mip 生成。
 

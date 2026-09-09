@@ -26,8 +26,8 @@ GGX 从全法线分布采样切换为可见法线采样。同步修改反射方�
 
 ## 构建与渲染
 
-- `SPECTRAL_SPP=16 SPECTRAL_OUTPUT=/tmp/MetalPT-vndf-validation scripts/validate-gpu.sh validation` 通过。输出 640×480，50% 渲染比例；Cornell / Prism 为 16 spp、深度 8。表面画廊固定 32 spp、深度 8。结果见 [vndf-regression.json](vndf-regression.json)。
+- `METALPT_SPP=16 METALPT_OUTPUT=/tmp/MetalPT-vndf-validation scripts/validate-gpu.sh validation` 通过。输出 640×480，50% 渲染比例；Cornell / Prism 为 16 spp、深度 8。表面画廊固定 32 spp、深度 8。结果见 [vndf-regression.json](vndf-regression.json)。
 - 检查同参数、同种子的 [修改前 PBR 画廊](vndf-before-pbr.png) 与 [VNDF PBR 画廊](vndf-after-pbr.png)，以及 SG 画廊，整体材质与照明表现一致，噪点分布变化。未将低采样截图作为定量方差结论。
-- `SPECTRAL_TRANSMISSION_VALIDATE=1 SPECTRAL_SPP=32 SPECTRAL_OUTPUT=/tmp/MetalPT-vndf-transmission scripts/validate-gpu.sh validation` 通过。该专用验证内部固定各透射场景 128 spp、深度 8、640×480 输出和 50% 比例。已检查粗糙透射图像。结果见 [vndf-transmission.json](vndf-transmission.json)。
+- `METALPT_TRANSMISSION_VALIDATE=1 METALPT_SPP=32 METALPT_OUTPUT=/tmp/MetalPT-vndf-transmission scripts/validate-gpu.sh validation` 通过。该专用验证内部固定各透射场景 128 spp、深度 8、640×480 输出和 50% 比例。已检查粗糙透射图像。结果见 [vndf-transmission.json](vndf-transmission.json)。
 
 VNDF 降低采样与 BSDF 不匹配引起的方差，并不能消除小光源、玻璃焦散等路径的全部高方差。本轮未加入降噪、贡献限幅或对真实场景进行收敛速度承诺。

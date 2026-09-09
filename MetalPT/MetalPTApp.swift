@@ -3,7 +3,7 @@ import SwiftUI
 @main
 enum MetalPTEntry {
     static func main() {
-        if ProcessInfo.processInfo.environment["SPECTRAL_VALIDATE"] != nil {
+        if ProcessInfo.processInfo.environment["METALPT_VALIDATE"] != nil {
             // A single windowless harness, independent of macOS window restoration.
             let app = NSApplication.shared
             app.setActivationPolicy(.prohibited)

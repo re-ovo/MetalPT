@@ -9,6 +9,6 @@
 - 同名不同键的 buffer/texture 不共享分配；同帧重复租用同键被拒绝。图分配阶段拒绝两个逻辑资源意外引用同一分配。跨帧容量复用继续通过。
 - 面积灯拒绝重复三角形、沿边重叠的三角形和非规范 UV；两种合法对角线划分均可接受。
 
-图和 ABI 测试：`scripts/test-graph.sh`。GPU 测试：`SPECTRAL_PROFILE=1 SPECTRAL_SPP=32 scripts/validate-gpu.sh validation`。
+图和 ABI 测试：`scripts/test-graph.sh`。GPU 测试：`METALPT_PROFILE=1 METALPT_SPP=32 scripts/validate-gpu.sh validation`。
 
 `contract-report.json` 保存结果，`contract-validation.log` 保存验证层日志。未重复保存相同图片。

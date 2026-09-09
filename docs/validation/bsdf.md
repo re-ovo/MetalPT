@@ -20,9 +20,9 @@
 ```sh
 scripts/test-graph.sh
 scripts/test-gltf.sh
-SPECTRAL_SPP=32 scripts/validate-gpu.sh validation
-SPECTRAL_TRANSMISSION_VALIDATE=1 SPECTRAL_WIDTH=320 SPECTRAL_HEIGHT=240 scripts/validate-gpu.sh validation
-SPECTRAL_GLTF=/tmp/specular-glossiness-fixture.glb SPECTRAL_SPP=32 SPECTRAL_WIDTH=320 SPECTRAL_HEIGHT=240 scripts/validate-gpu.sh validation
+METALPT_SPP=32 scripts/validate-gpu.sh validation
+METALPT_TRANSMISSION_VALIDATE=1 METALPT_WIDTH=320 METALPT_HEIGHT=240 scripts/validate-gpu.sh validation
+METALPT_GLTF=/tmp/specular-glossiness-fixture.glb METALPT_SPP=32 METALPT_WIDTH=320 METALPT_HEIGHT=240 scripts/validate-gpu.sh validation
 ```
 
 ![SG 材质球，32 spp，8 次反弹](bsdf-sg.png)

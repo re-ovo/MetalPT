@@ -40,8 +40,8 @@
 ```sh
 scripts/test-graph.sh
 scripts/test-gltf.sh
-SPECTRAL_SPP=16 scripts/validate-gpu.sh validation
-SPECTRAL_GLTF="$PWD/models/Rikimaru_Street.glb" SPECTRAL_IMPORT_PROFILE=1 SPECTRAL_SPP=4 SPECTRAL_WIDTH=320 SPECTRAL_HEIGHT=240 scripts/validate-gpu.sh validation
+METALPT_SPP=16 scripts/validate-gpu.sh validation
+METALPT_GLTF="$PWD/models/Rikimaru_Street.glb" METALPT_IMPORT_PROFILE=1 METALPT_SPP=4 METALPT_WIDTH=320 METALPT_HEIGHT=240 scripts/validate-gpu.sh validation
 ```
 
 GPU mip 接口参考 [Apple generateMipmaps](https://developer.apple.com/documentation/metal/mtlblitcommandencoder/generatemipmaps(for:))。颜色空间及 alpha 语义通过生产 GPU 检查确认。

@@ -1,6 +1,6 @@
 # 渲染器架构与扩展边界
 
-当前积分与累积均使用线性 RGB；玻璃 IOR 固定为 1.5。PTPath 删除波长及波长 PDF 后为 80 字节，PTScene 删除 CIE/Au 指针后为 80 字节。
+当前积分与累积均使用线性 RGB；玻璃 IOR 固定为 1.5，黄金使用近似 RGB F0=(1, 0.71, 0.29)。当前程序不加载光谱表。PTPath 删除波长及波长 PDF 后为 80 字节，PTScene 删除 CIE/Au 指针后为 80 字节。
 
 ## 场景数据与 GPU 快照
 
@@ -23,6 +23,8 @@ CPU `SceneMaterial.Surface` 保留 Metallic-Roughness 和 Specular-Glossiness �
 `BSDF.h` 的 `evaluateBSDF` 同时返回有限立体角 BSDF 与完整混合 PDF；`sampleSurfaceBSDF` 返回方向、已经包含 `f * abs(cos) / pdf` 的权重、PDF、delta / transmitted 标记和 etaI/etaT。理想玻璃通过同一接口返回离散反射/折射事件；透射权重包含辐亮度 eta²，积分器用返回的 eta 补偿俄罗斯轮盘。理想玻璃使用几何法线和固定 IOR 1.5；薄表面直透的 eta 为 1。
 
 `MaterialShading.metal` 只负责发光命中、直接光采样/MIS、应用 BSDF 样本和路径队列，不再自行实现玻璃 Fresnel 或折射采样。当前分派为内联类型分支，未引入按材质分队列或动态函数表。SG 的非 delta GGX 仍使用粗糙度数值下限；多层涂层和通用 BSDF 混合图尚未实现。
+
+路径追踪与玻璃 BSDF 为独立实现，参考 [PBRT 波前路径追踪](https://www.pbr-book.org/4ed/Wavefront_Rendering_on_GPUs/Path_Tracer_Implementation)和[电介质 BSDF](https://pbr-book.org/4ed/Reflection_Models/Dielectric_BSDF)；未复制 PBRT 代码或 RGB 光谱查找表。历史光谱数据来源与许可可从 Git 历史查阅。
 
 ## 相机与显示处理
 
@@ -56,7 +58,7 @@ CPU `SceneMaterial.Surface` 保留 Metallic-Roughness 和 Specular-Glossiness �
 
 - `scripts/test-graph.sh`：依赖、RAW/WAR/WAW、非法读取、环、延迟分配裁剪、缓存失效、跨图句柄、过期计划及共享 ABI；`SurfaceAssetTests` 检查 primitive、图片解码、颜色空间 mip 和绑定契约；场景层还覆盖父子变换、脏子树、可见性、重挂、稳定资产引用和材质槽。
 - `scripts/validate-gpu.sh validation`：生产 GPU 路径，以及共享 BLAS 实例、变换与烘焙几何对照、多材质槽、父节点移动、空可见场景、BLAS 复用/失效、第三个纹理槽、默认纹理、多灯和暂停资源裁剪；另验证同一命令缓冲内两个累积/显示 Pass 的不同输入输出、池租用规则和面积灯契约。
-- `SPECTRAL_PROFILE=1 scripts/validate-gpu.sh validation`：报告增加 `passGPUms`，在 GPU 完成后解析每个 Pass 的时间戳，按 Mach timebase 将支持的 Apple GPU 路径上的 heap ticks 换算为毫秒。时间戳会引入额外同步开销，因此普通性能比较应关闭此开关。
+- `METALPT_PROFILE=1 scripts/validate-gpu.sh validation`：报告增加 `passGPUms`，在 GPU 完成后解析每个 Pass 的时间戳，按 Mach timebase 将支持的 Apple GPU 路径上的 heap ticks 换算为毫秒。时间戳会引入额外同步开销，因此普通性能比较应关闭此开关。
 
 时间戳接口参考 Apple 的 [Metal 4 Counter Heap](https://developer.apple.com/documentation/metal/mtl4counterheap)。统计表示 Pass 前后 GPU 时间戳间隔，不应当作无测量开销的独占执行时间。
 

@@ -58,13 +58,12 @@ xcodebuild -project MetalPT.xcodeproj -scheme MetalPT \
 scripts/test-graph.sh
 scripts/test-gltf.sh
 scripts/validate-gpu.sh validation
-SPECTRAL_TRANSMISSION_VALIDATE=1 scripts/validate-gpu.sh validation
+METALPT_TRANSMISSION_VALIDATE=1 scripts/validate-gpu.sh validation
 scripts/validate-gpu.sh capture
-SPECTRAL_SPP=512 scripts/validate-gpu.sh release
+METALPT_SPP=512 scripts/validate-gpu.sh release
 ```
 
-为兼容现有脚本，环境变量仍使用 `SPECTRAL_` 前缀。`SPECTRAL_OUTPUT` 指定报告目录，`SPECTRAL_PROFILE=1` 开启逐 Pass GPU 时间戳。Capture 与 Shader Validation 分开运行。
+环境变量统一使用 `METALPT_` 前缀。`METALPT_OUTPUT` 指定报告目录，`METALPT_PROFILE=1` 开启逐 Pass GPU 时间戳。Capture 与 Shader Validation 分开运行。
 
-CPU 覆盖图/ABI、场景层级、primitive、图片及 glTF。GPU 覆盖 RGB 通道保持、显示编码、Fresnel/TIR、GGX、黑场、PBR 能量/PDF、纹理/覆盖、透射、资源绑定、BLAS 复用和累积失效。材质重构记录见 [BSDF 验证](docs/validation/bsdf.md)，RGB 基线见 [RGB 验证](docs/validation/rgb.md)；其他历史光谱截图和性能不能作为 RGB 基线。
-
-历史数据来源与许可保留在 `MetalPT/Resources/NOTICE.md`；当前程序不加载这些数据。
+CPU 覆盖图/ABI、场景层级、primitive、图片及 glTF。GPU 覆盖 RGB 通道保持、显示编码、Fresnel/TIR、GGX、黑场、PBR 能量/PDF、纹理/覆盖、透射、资源绑定、BLAS 复用和累积失效。
+材质重构记录见 [BSDF 验证](docs/validation/bsdf.md)，RGB 基线见 [RGB 验证](docs/validation/rgb.md)。

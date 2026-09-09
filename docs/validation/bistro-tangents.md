@@ -26,7 +26,7 @@ POSITION、NORMAL、UV 等其他数据继续严格校验，不以零值掩盖关
 
 ```sh
 scripts/test-gltf.sh
-SPECTRAL_GLTF="$PWD/models/bistro.glb" SPECTRAL_IMPORT_PROFILE=1 SPECTRAL_SPP=4 SPECTRAL_WIDTH=320 SPECTRAL_HEIGHT=240 scripts/validate-gpu.sh validation
+METALPT_GLTF="$PWD/models/bistro.glb" METALPT_IMPORT_PROFILE=1 METALPT_SPP=4 METALPT_WIDTH=320 METALPT_HEIGHT=240 scripts/validate-gpu.sh validation
 ```
 
 ![Bistro 集成验证远景，4 spp](bistro-tangent.png)

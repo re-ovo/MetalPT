@@ -7,7 +7,7 @@
 ## 验证
 
 - `scripts/test-graph.sh` 通过。
-- `SPECTRAL_OUTPUT=/tmp/MetalPT-dof-denoise-final scripts/validate-gpu.sh validation` 构建及全部 GPU 回归通过。
+- `METALPT_OUTPUT=/tmp/MetalPT-dof-denoise-final scripts/validate-gpu.sh validation` 构建及全部 GPU 回归通过。
 - Cornell 场景，内部 320×240，输出 640×480，反弹上限 8，孔径半径 0.15；16 spp 原图与降噪图共用同一份累积，参考图为 256 spp 未降噪结果。
 - 验证暂停时启用降噪不重置累积，重复显示逐像素稳定，关闭降噪逐像素恢复原图。
 - 验证两个对焦距离的全图与左墙/后墙交界区域误差下降。MSE 在 SDR 显示 RGB 上计算，参考图包含原来的 16 个样本，不代表独立的无噪声真值。
@@ -45,4 +45,4 @@
 
 景深分支现在用几何法线判定共面性，着色法线仅影响法线相似度。新增生产 `spatialDenoise` 合成回归：同一倾斜几何平面具有长度小于 1 的孔径平均着色法线和交替行噪声，断言内部像素恢复到已知常量值附近，避免错误切换轴向深度度量导致条纹。
 
-`scripts/test-graph.sh` 和 `SPECTRAL_OUTPUT=/tmp/MetalPT-review-fixes scripts/validate-gpu.sh validation` 均通过；已检查更新图像，原有景深和降噪效果保留。
+`scripts/test-graph.sh` 和 `METALPT_OUTPUT=/tmp/MetalPT-review-fixes scripts/validate-gpu.sh validation` 均通过；已检查更新图像，原有景深和降噪效果保留。

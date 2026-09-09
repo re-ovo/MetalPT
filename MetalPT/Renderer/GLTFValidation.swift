@@ -19,7 +19,7 @@ enum GLTFValidation {
         var firstGraph = ""
         let capture = MTLCaptureManager.shared()
         for sample in 0..<max(samples, 1) {
-            let capturing = sample == 0 && ProcessInfo.processInfo.environment["SPECTRAL_CAPTURE"] != nil
+            let capturing = sample == 0 && ProcessInfo.processInfo.environment["METALPT_CAPTURE"] != nil
             if capturing {
                 let descriptor = MTLCaptureDescriptor()
                 descriptor.captureObject = renderer.context.device

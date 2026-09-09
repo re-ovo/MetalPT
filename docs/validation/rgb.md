@@ -18,13 +18,13 @@
 ```sh
 scripts/test-graph.sh
 scripts/test-gltf.sh
-SPECTRAL_SPP=32 scripts/validate-gpu.sh validation
-SPECTRAL_TRANSMISSION_VALIDATE=1 SPECTRAL_WIDTH=320 SPECTRAL_HEIGHT=240 scripts/validate-gpu.sh validation
-SPECTRAL_GLTF=/tmp/spectral-import-fixture.glb SPECTRAL_WIDTH=320 SPECTRAL_HEIGHT=240 SPECTRAL_SPP=32 scripts/validate-gpu.sh validation
-SPECTRAL_SPP=128 scripts/validate-gpu.sh release
+METALPT_SPP=32 scripts/validate-gpu.sh validation
+METALPT_TRANSMISSION_VALIDATE=1 METALPT_WIDTH=320 METALPT_HEIGHT=240 scripts/validate-gpu.sh validation
+METALPT_GLTF=/tmp/spectral-import-fixture.glb METALPT_WIDTH=320 METALPT_HEIGHT=240 METALPT_SPP=32 scripts/validate-gpu.sh validation
+METALPT_SPP=128 scripts/validate-gpu.sh release
 ```
 
-项目和 `SPECTRAL_` 环境变量名称保留以兼容既有工作流。报告：[Debug](rgb-debug.json)、[Release](rgb-release.json)、[透射](rgb-transmission.json)、[glTF](rgb-gltf.json)。旧光谱报告与图片保留为历史记录，不作为 RGB 像素基线。
+项目和 `METALPT_` 环境变量名称保留以兼容既有工作流。报告：[Debug](rgb-debug.json)、[Release](rgb-release.json)、[透射](rgb-transmission.json)、[glTF](rgb-gltf.json)。旧光谱报告与图片保留为历史记录，不作为 RGB 像素基线。
 
 ![RGB Cornell，128 spp](rgb-cornell.png)
 

@@ -125,7 +125,7 @@ nonisolated final class ImportRequest: @unchecked Sendable {
                     self.lastTimings["installMs"] =
                         (ProcessInfo.processInfo.systemUptime - installStart) * 1000
                     self.lastTimings["totalMs"] = (ProcessInfo.processInfo.systemUptime - requestedAt) * 1000
-                    if ProcessInfo.processInfo.environment["SPECTRAL_IMPORT_PROFILE"] != nil {
+                    if ProcessInfo.processInfo.environment["METALPT_IMPORT_PROFILE"] != nil {
                         print("Import \(url.lastPathComponent): \(self.lastTimings)")
                     }
                     self.filename = url.lastPathComponent

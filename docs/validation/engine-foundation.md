@@ -9,7 +9,7 @@
 - 资源句柄代数失效检测、旧快照持有分配、容量复用和池回收通过。
 - 暂停帧裁剪路径 Pass 且不分配 radiance 队列；拓扑缓存实际命中。本轮完整验证命中 120 次。
 - 奇异实例变换、不匹配灯光几何被拒绝；已有黑场、光谱积分、全反射、色散开关、快速场景切换和缩放检查继续通过。
-- 开启 `SPECTRAL_PROFILE=1` 可解析逐 Pass 时间戳。报告中的最终帧包含 52 个 Pass；数值含测量开销，不用于与未开启计数器的帧直接比较。
+- 开启 `METALPT_PROFILE=1` 可解析逐 Pass 时间戳。报告中的最终帧包含 52 个 Pass；数值含测量开销，不用于与未开启计数器的帧直接比较。
 
 文件：`engine-profile.json` 是开启计数器和验证层的报告，`engine-release.json` 是未开启计数器的 Release 报告，`engine-validation.log` 保存验证层结果，`engine-render-graph.txt` 保存新图结构。旧版验证记录和截图继续保留。
 
