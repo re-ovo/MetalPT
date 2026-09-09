@@ -256,7 +256,9 @@ final class Renderer: NSObject, MTKViewDelegate {
     func validateRGB() async throws -> [SIMD4<Float>] {
         try await validateNumerics(kernel: "validateRGB", count: 4)
     }
-    func validateNumerics(kernel: String, count: Int) async throws -> [SIMD4<Float>] {
+    func validateNumerics(kernel: String, count: Int, frameConstants: PTFrame = PTFrame()) async throws
+        -> [SIMD4<Float>]
+    {
         await waitForGPU()
         guard let scene else {
             throw RenderFailure("先渲染一个场景")
@@ -267,7 +269,7 @@ final class Renderer: NSObject, MTKViewDelegate {
         var w = PTWork()
         w.radiance = result.gpuAddress
         let root = try context.upload([w], "Validation work")
-        let frame = try context.buffer(256, "Validation frame", shared: true)
+        let frame = try context.upload([frameConstants], "Validation frame")
         let table = try context.table(scene: scene.root, work: root, frame: frame)
         let residency = try context.residency(scene.allocations + [result, root, frame])
         command.beginCommandBuffer(allocator: allocator)

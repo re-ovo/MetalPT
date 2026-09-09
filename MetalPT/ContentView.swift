@@ -198,12 +198,36 @@ struct ContentView: View {
                         Text("100%").tag(Float(1))
                     }
                     Stepper("反弹上限  \(model.maxDepth)", value: $model.maxDepth, in: 1...16)
+                }
+                Section("显示 · SDR sRGB") {
+                    Picker("显示变换", selection: $model.displayTransform) {
+                        ForEach(DisplayTransform.allCases, id: \.self) { transform in
+                            Text(transform.title).tag(transform)
+                        }
+                    }
+                    LabeledContent("光源色温", value: String(format: "%.0f K", model.whiteBalanceTemperature))
+                    Slider(value: $model.whiteBalanceTemperature, in: 4000...25000, step: 1)
+                    LabeledContent("色调校正（洋红 → 绿色）", value: String(format: "%+.2f", model.whiteBalanceTint))
+                    Slider(value: $model.whiteBalanceTint, in: -1...1, step: 0.01)
+                    Button("重置白平衡") {
+                        model.whiteBalanceTemperature = 6504
+                        model.whiteBalanceTint = 0
+                    }
                     LabeledContent("曝光", value: String(format: "%+.1f EV", model.exposure))
                     Slider(value: $model.exposure, in: -4...4, step: 0.1)
                 }
                 Section("FPS 相机") {
                     LabeledContent("视野", value: "\(Int(model.camera.fieldOfView))°")
                     Slider(value: $model.camera.fieldOfView, in: 20...100, step: 1)
+                    Toggle("景深", isOn: $model.camera.depthOfField)
+                    if model.camera.depthOfField {
+                        LabeledContent("孔径半径", value: String(format: "%.3f", model.camera.apertureRadius))
+                        Slider(value: $model.camera.apertureRadius, in: 0...0.3, step: 0.001)
+                        LabeledContent("对焦距离", value: String(format: "%.2f", model.camera.focusDistance))
+                        Slider(value: $model.camera.focusDistance, in: 0.01...100)
+                        Text("距离使用场景单位；降噪支持景深，并保留镜面与透明区域。")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     LabeledContent("移动速度", value: String(format: "%.2f", model.movementSpeed))
                     Slider(value: $model.movementSpeed, in: 0.05...20)
                     Button("重置相机") { model.resetCamera() }

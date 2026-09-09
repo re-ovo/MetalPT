@@ -1,0 +1,22 @@
+{
+  "device": "Apple M4",
+  "shaderValidation": true,
+  "cameraDisplay": {
+    "apertureRadius": 0.15,
+    "depth": 8,
+    "focusDistance": 4,
+    "height": 480,
+    "passed": true,
+    "samples": 64,
+    "width": 640
+  },
+  "renderResolution": "320x240",
+  "passed": true,
+  "rayInvariants": [
+    "pinhole origin",
+    "aperture radius and plane",
+    "normalized direction",
+    "focal-plane convergence at distances 4 and 8 with rotated camera"
+  ],
+  "comparisonDenoiseEnabled": false
+}

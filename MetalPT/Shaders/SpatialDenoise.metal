@@ -1,4 +1,5 @@
 #include "SurfaceTraversal.h"
+#include "Camera.h"
 
 inline float3 guideRay(constant PTFrame &f, uint2 pixel) {
     float2 uv = (float2(pixel) + 0.5f) / float2(f.size.xy) * 2 - 1;
@@ -33,9 +34,33 @@ kernel void denoiseGuides(constant PTScene &s [[buffer(0)]],
                           uint id [[thread_position_in_grid]]) {
     if (id >= f.size.x * f.size.y)
         return;
-    // Stable center rays avoid changing guide geometry with each jittered path sample.
-    float3 direction = normalize(guideRay(f, uint2(id % f.size.x, id / f.size.x)));
-    DenoiseGuide guide = makeDenoiseGuide(s, ray(f.eye.xyz, direction), f.forward.xyz, hash32(id));
+    float2 pixel = float2(id % f.size.x, id / f.size.x) + 0.5f;
+    DenoiseGuide guide = makeDenoiseGuide(s, cameraRay(f, pixel, float2(0)), f.forward.xyz, hash32(id));
+    if (f.lens.x > 0) {
+        // Fixed, paired equal-area aperture samples: stable while paused and no temporal noise
+        // in the guides. Integrate features over the lens instead of imposing pinhole edges.
+        DenoiseGuide integrated = {};
+        float depthSquared = 0;
+        bool preserve = false;
+        for (uint i = 0; i < 16; ++i) {
+            float2 lensSample =
+                float2((float(i / 2) + 0.5f) / 8, fract(float(i / 2) * 0.618033989f + float(i % 2) * 0.5f));
+            DenoiseGuide sample =
+                makeDenoiseGuide(s, cameraRay(f, pixel, lensSample), f.forward.xyz, hash32(id));
+            preserve = preserve || sample.normalDepth.w <= 0 || sample.albedo.w < 0;
+            integrated.normalDepth += sample.normalDepth / 16;
+            integrated.geometricNormal += sample.geometricNormal / 16;
+            integrated.albedo += sample.albedo / 16;
+            depthSquared += sample.normalDepth.w * sample.normalDepth.w / 16;
+        }
+        // Depth spread describes mixed layers; it is not a single reconstructible surface.
+        integrated.geometricNormal.w =
+            sqrt(max(0.0f, depthSquared - integrated.normalDepth.w * integrated.normalDepth.w));
+        if (preserve) {
+            integrated.albedo.w = -1;
+        }
+        guide = integrated;
+    }
     w.normalDepth[id] = guide.normalDepth;
     w.geometricNormal[id] = guide.geometricNormal;
     w.albedoGuide[id] = guide.albedo;
@@ -96,8 +121,26 @@ kernel void spatialDenoise(constant PTWork &w [[buffer(1)]],
             float planeDistance = max(abs(dot(w.geometricNormal[id].xyz, otherPosition - position)),
                                       abs(dot(w.geometricNormal[index].xyz, otherPosition - position)));
             float weight = taps[x + 2] * taps[y + 2];
-            weight *= pow(max(0.0f, dot(nd.xyz, otherND.xyz)), 32.0f);
-            weight *= exp(-planeDistance / max(0.002f * nd.w, 1e-5f));
+            if (f.lens.x > 0) {
+                // Compare aperture-averaged features, including normal mixtures. Mixed normals
+                // use depth distributions rather than treating them as one pinhole plane.
+                float3 normalDifference = nd.xyz - otherND.xyz;
+                weight *= exp(-dot(normalDifference, normalDifference) / 0.08f);
+                float spread = w.geometricNormal[id].w + w.geometricNormal[index].w;
+                float depthSigma = max(0.002f * max(nd.w, otherND.w), 1e-5f) + spread;
+                // A coherent plane still needs tangent-plane distance: axial depth differences
+                // would reject vertical neighbors on sloping floors/ceilings and create streaks.
+                float3 geometricNormal = w.geometricNormal[id].xyz;
+                float3 otherGeometricNormal = w.geometricNormal[index].xyz;
+                bool coherentPlane = length(geometricNormal) > 0.999f &&
+                                     length(otherGeometricNormal) > 0.999f &&
+                                     dot(geometricNormal, otherGeometricNormal) > 0.999f;
+                float depthDistance = coherentPlane ? planeDistance : abs(nd.w - otherND.w);
+                weight *= exp(-depthDistance / depthSigma);
+            } else {
+                weight *= pow(max(0.0f, dot(nd.xyz, otherND.xyz)), 32.0f);
+                weight *= exp(-planeDistance / max(0.002f * nd.w, 1e-5f));
+            }
             float3 difference = albedo.xyz - otherAlbedo.xyz;
             weight *= exp(-dot(difference, difference) / 0.02f);
             float otherLuminance = denoiseLuminance(color);

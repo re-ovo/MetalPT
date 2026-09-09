@@ -6,6 +6,9 @@ struct FPSCamera: Equatable {
     var yaw: Float = 0
     var pitch: Float = 0.04
     var fieldOfView: Float = 38
+    var depthOfField = false
+    var apertureRadius: Float = 0.03
+    var focusDistance: Float = 6.2
 
     var forward: SIMD3<Float> {
         -SIMD3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch))
@@ -29,6 +32,7 @@ struct FPSCamera: Equatable {
     func fill(_ frame: inout PTFrame, aspect: Float) {
         let up = simd_cross(right, forward)
         let focal = tan(fieldOfView * .pi / 360)
+        frame.lens = [depthOfField ? max(0, apertureRadius) : 0, max(0.01, focusDistance), 0, 0]
         frame.eye = SIMD4(position, 0)
         frame.forward = SIMD4(forward, 0)
         frame.right = SIMD4(right * focal * aspect, 0)

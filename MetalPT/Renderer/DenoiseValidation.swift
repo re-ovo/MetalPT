@@ -65,12 +65,104 @@ enum DenoiseValidation {
         if let error = renderer.model.error { throw RenderFailure(error) }
         renderer.model.denoiseEnabled = false
         renderer.model.paused = false
+        let depthOfField = try await checkDepthOfField(renderer, output: output, folder: folder)
         return [
+            "depthOfField": depthOfField,
             "passed": true, "inputSPP": samples, "referenceSPP": 256, "rawDisplayMSE": rawMSE,
             "filteredDisplayMSE": filteredMSE, "preservesAccumulation": true,
             "pausedToggleAndCameraReset": true,
         ]
     }
+    private static func checkDepthOfField(_ renderer: Renderer, output: MTLTexture, folder: URL) async throws
+        -> [[String: Any]]
+    {
+        let model = renderer.model
+        var results: [[String: Any]] = []
+        for focus: Float in [4, 8] {
+            model.resetCamera()
+            model.camera.depthOfField = true
+            model.camera.apertureRadius = 0.15
+            model.camera.focusDistance = focus
+            model.denoiseEnabled = false
+            model.paused = false
+            for _ in 0..<16 {
+                _ = try renderer.render(to: output)
+                await renderer.waitForGPU()
+            }
+            let raw = ValidationRunner.readPixels(output)
+            let prefix = "dof-denoise-\(Int(focus))"
+            _ = try ValidationRunner.save(output, to: folder.appendingPathComponent("\(prefix)-off.png"))
+            model.paused = true
+            model.denoiseEnabled = true
+            _ = try renderer.render(to: output)
+            await renderer.waitForGPU()
+            let filtered = ValidationRunner.readPixels(output)
+            guard model.samples == 16, filtered != raw,
+                renderer.lastGraph.contains("Denoise · spatial 2")
+            else {
+                throw RenderFailure("DOF denoising must run without resetting accumulation")
+            }
+            _ = try ValidationRunner.save(output, to: folder.appendingPathComponent("\(prefix)-on.png"))
+            _ = try renderer.render(to: output)
+            await renderer.waitForGPU()
+            guard ValidationRunner.readPixels(output) == filtered else {
+                throw RenderFailure("Aperture guides must remain stable while paused")
+            }
+            model.denoiseEnabled = false
+            _ = try renderer.render(to: output)
+            await renderer.waitForGPU()
+            guard ValidationRunner.readPixels(output) == raw else {
+                throw RenderFailure("DOF denoising modified persistent accumulation")
+            }
+            model.paused = false
+            for _ in 16..<256 {
+                _ = try renderer.render(to: output)
+                await renderer.waitForGPU()
+            }
+            let reference = ValidationRunner.readPixels(output)
+            _ = try ValidationRunner.save(
+                output, to: folder.appendingPathComponent("\(prefix)-reference.png"))
+            func mse(_ pixels: [UInt8], edgeOnly: Bool = false) -> Double {
+                var sum = 0.0
+                var count = 0
+                for y in 0..<output.height {
+                    for x in 0..<output.width {
+                        // Left wall/back wall silhouette: includes a defocused geometry discontinuity.
+                        if edgeOnly
+                            && !(x >= output.width / 5 && x < output.width / 3
+                                && y >= output.height / 5 && y < output.height / 2)
+                        {
+                            continue
+                        }
+                        for channel in 0..<3 {
+                            let i = (y * output.width + x) * 4 + channel
+                            let delta = (Double(pixels[i]) - Double(reference[i])) / 255
+                            sum += delta * delta
+                            count += 1
+                        }
+                    }
+                }
+                return sum / Double(count)
+            }
+            let rawError = mse(raw), filteredError = mse(filtered)
+            let rawEdge = mse(raw, edgeOnly: true), filteredEdge = mse(filtered, edgeOnly: true)
+            guard filteredError < rawError, filteredEdge < rawEdge else {
+                throw RenderFailure(
+                    "DOF filter increased full/edge MSE at focus \(focus): \(rawError), \(filteredError); \(rawEdge), \(filteredEdge)"
+                )
+            }
+            if let error = model.error { throw RenderFailure(error) }
+            results.append([
+                "focusDistance": focus, "apertureRadius": 0.15, "inputSPP": 16,
+                "referenceSPP": 256, "rawMSE": rawError, "filteredMSE": filteredError,
+                "rawEdgeMSE": rawEdge, "filteredEdgeMSE": filteredEdge,
+                "pausedStable": true, "preservesAccumulation": true,
+            ])
+        }
+        model.resetCamera()
+        return results
+    }
+
     private static func checkGuides(_ renderer: Renderer, output: MTLTexture) async throws {
         var fixture = SceneDescription()
         let normal = try SceneImage(width: 1, height: 1, pixels: [218, 128, 218, 255])
@@ -119,7 +211,7 @@ enum DenoiseValidation {
     private static func checkEdges(_ context: MetalContext) async throws {
         let width = 16, height = 8, count = width * height
         var tiltedOutput: [Float] = []
-        for mode in 0..<6 {
+        for mode in 0..<7 {
             let pool = TransientPool(context)
             let graph = RenderGraph()
             var colors: [SIMD4<Float>] = [], normals: [SIMD4<Float>] = [], albedo: [SIMD4<Float>] = []
@@ -137,18 +229,37 @@ enum DenoiseValidation {
                         ? (right ? SIMD4(0, 0, 1, 1) : SIMD4(1, 0, 0, 1)) : SIMD4(1, 1, 1, mode == 3 ? -1 : 1)
                 )
             }
+            if mode == 6 {
+                // Sloping geometric plane z+y=-4, aperture-averaged mapped normals of length < 1.
+                // Row-wise noise exposes axial-depth rejection as horizontal stripes.
+                for i in 0..<count {
+                    let y = i / width
+                    let uvY = 1 - 2 * (Float(y) + 0.5) / Float(height)
+                    let depth = 4 / (1 - uvY * tan(Float(38) * .pi / 360))
+                    normals[i] = [0, 0.5656854, 0.5656854, depth]
+                    colors[i] = SIMD4(repeating: y % 2 == 0 ? 0.6 : 0.4)
+                }
+            }
             func input(_ values: [SIMD4<Float>], _ name: String) throws -> RenderGraph.Resource {
                 graph.importResource(name, allocation: try context.upload(values, name))
             }
             let source = try input(colors, "Synthetic noisy input")
             let normal = try input(normals, "Synthetic normal depth")
             let geometry = try input(
-                [SIMD4<Float>](repeating: [0, 0, 1, 0], count: count), "Synthetic geometric normals")
+                [SIMD4<Float>](
+                    repeating: mode == 6 ? [0, 0.70710677, 0.70710677, 0] : [0, 0, 1, 0], count: count),
+                "Synthetic geometric normals")
             let color = try input(albedo, "Synthetic albedo")
             let destination = try context.buffer(count * 16, "Synthetic filter output", shared: true)
             let result = graph.importResource("Synthetic output", allocation: destination, initialized: false)
             let model = RenderModel()
             model.denoiseStrength = 1.5
+            if mode == 6 {
+                model.camera.position = .zero
+                model.camera.pitch = 0
+                model.camera.depthOfField = true
+                model.camera.apertureRadius = 0.001
+            }
             let parameters = FrameParameters(
                 model: model, width: width, height: height, sampleIndex: 0, reset: false, validationMode: 0)
             let bindings = try ComputeBindings(
@@ -178,7 +289,15 @@ enum DenoiseValidation {
             context.queue.signalEvent(completion, value: 1)
             while completion.signaledValue < 1 { try await Task.sleep(for: .milliseconds(1)) }
             let values = destination.contents().bindMemory(to: SIMD4<Float>.self, capacity: count)
-            if mode == 4 {
+            if mode == 6 {
+                guard
+                    (2..<(height - 2)).allSatisfy({ row in
+                        abs(values[row * width + width / 2].x - 0.5) < 0.025
+                    })
+                else {
+                    throw RenderFailure("Mapped shading normals caused DOF planar filtering stripes")
+                }
+            } else if mode == 4 {
                 tiltedOutput = (0..<count).map { values[$0].x }
             } else if mode == 5 {
                 guard (0..<count).allSatisfy({ abs(values[$0].x - tiltedOutput[$0]) < 0.00001 }) else {

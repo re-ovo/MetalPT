@@ -1,0 +1,35 @@
+{
+  "device": "Apple M4",
+  "shaderValidation": true,
+  "renderResolution": "320x240",
+  "outputResolution": "640x480",
+  "maxDepth": 8,
+  "passed": true,
+  "checks": [
+    {
+      "apertureRadius": 0.15,
+      "filteredEdgeMSE": 0.0009939599232405378,
+      "filteredMSE": 0.0035055093660534536,
+      "focusDistance": 4,
+      "inputSPP": 16,
+      "pausedStable": true,
+      "preservesAccumulation": true,
+      "rawEdgeMSE": 0.004612068091794144,
+      "rawMSE": 0.008464695135923161,
+      "referenceSPP": 256
+    },
+    {
+      "apertureRadius": 0.15,
+      "filteredEdgeMSE": 0.0009274210773633863,
+      "filteredMSE": 0.0036459905912243863,
+      "focusDistance": 8,
+      "inputSPP": 16,
+      "pausedStable": true,
+      "preservesAccumulation": true,
+      "rawEdgeMSE": 0.004329192978401075,
+      "rawMSE": 0.008338242569602304,
+      "referenceSPP": 256
+    }
+  ],
+  "mappedSlopingPlaneRegression": true
+}

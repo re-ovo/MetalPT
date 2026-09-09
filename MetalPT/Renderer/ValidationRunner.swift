@@ -1,5 +1,6 @@
 import AppKit
 import Metal
+import simd
 
 /// Opt-in integration harness. Runs the production graph/shaders, writes PNGs and
 /// machine-readable metrics, and exits. No external assets or screenshot permissions.
@@ -160,6 +161,8 @@ enum ValidationRunner {
             report["analyticLights"] = try await LightValidation.run(renderer, output: output, folder: folder)
             report["spatialDenoise"] = try await DenoiseValidation.run(
                 renderer, output: output, folder: folder)
+            report["cameraDisplay"] = try await validateCameraDisplay(
+                renderer, output: output, folder: folder)
             report["passed"] = true
             try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]).write(
                 to: folder.appendingPathComponent("report.json"))
@@ -172,6 +175,108 @@ enum ValidationRunner {
             exit(1)
         }
     }
+    static func validateCameraDisplay(_ renderer: Renderer, output: MTLTexture, folder: URL) async throws
+        -> [String: Any]
+    {
+        let model = renderer.model
+        model.scene = .cornell
+        model.resetCamera()
+        model.paused = false
+        model.denoiseEnabled = false
+        model.exposure = 0
+        model.displayTransform = .aces
+        model.whiteBalanceTemperature = 6504
+        model.whiteBalanceTint = 0
+        for _ in 0..<64 {
+            _ = try renderer.render(to: output)
+            await renderer.waitForGPU()
+        }
+        try await validateCameraRays(renderer)
+        let pinhole = readPixels(output)
+        _ = try save(output, to: folder.appendingPathComponent("camera-pinhole.png"))
+        model.paused = true
+        let samples = model.samples
+        for transform in DisplayTransform.allCases {
+            model.displayTransform = transform
+            model.whiteBalanceTemperature = 9000
+            model.whiteBalanceTint = 0.2
+            _ = try renderer.render(to: output)
+            await renderer.waitForGPU()
+            guard model.samples == samples, readPixels(output) != pinhole else {
+                throw RenderFailure(
+                    "Display controls must update paused output without resetting accumulation")
+            }
+            _ = try save(output, to: folder.appendingPathComponent("display-\(transform.rawValue).png"))
+        }
+        model.displayTransform = .aces
+        model.whiteBalanceTemperature = 6504
+        model.whiteBalanceTint = 0
+        _ = try renderer.render(to: output)
+        await renderer.waitForGPU()
+        guard readPixels(output) == pinhole else {
+            throw RenderFailure("Display edits changed linear accumulation")
+        }
+        model.paused = false
+        model.camera.depthOfField = true
+        model.camera.apertureRadius = 0.15
+        model.camera.focusDistance = 4
+        model.denoiseEnabled = false
+        for index in 0..<64 {
+            _ = try renderer.render(to: output)
+            await renderer.waitForGPU()
+            if index == 0 && model.samples != 1 {
+                throw RenderFailure("Lens edits did not reset accumulation")
+            }
+        }
+        guard readPixels(output) != pinhole else { throw RenderFailure("Aperture did not affect image") }
+        let counters = renderer.lastCounters!.contents().bindMemory(to: UInt32.self, capacity: 8)
+        guard counters[3] == 0 && counters[4] == 0 else { throw RenderFailure("Lens produced invalid paths") }
+        _ = try save(output, to: folder.appendingPathComponent("camera-dof.png"))
+        model.camera.focusDistance = 8
+        _ = try renderer.render(to: output)
+        await renderer.waitForGPU()
+        guard model.samples == 1 else { throw RenderFailure("Focus edit did not reset accumulation") }
+        return [
+            "passed": true, "samples": 64, "depth": model.maxDepth,
+            "width": output.width, "height": output.height, "apertureRadius": 0.15, "focusDistance": 4,
+        ]
+    }
+
+    private static func validateCameraRays(_ renderer: Renderer) async throws {
+        var camera = FPSCamera()
+        camera.yaw = 0.4
+        camera.pitch = -0.3
+        camera.apertureRadius = 0.15
+        for (enabled, focus) in [(false, Float(4)), (true, 4), (true, 8)] {
+            camera.depthOfField = enabled
+            camera.focusDistance = focus
+            var frame = PTFrame()
+            camera.fill(&frame, aspect: 4.0 / 3.0)
+            frame.size = [128, 96, 0, 0]
+            let rays = try await renderer.validateNumerics(
+                kernel: "validateCameraRays", count: 8, frameConstants: frame)
+            // Pixel (0.3, 0.7) corresponds to projection coordinates (-0.4, -0.4).
+            let target =
+                camera.position + focus * (camera.forward - 0.4 * frame.right.xyz - 0.4 * frame.up.xyz)
+            for i in 0..<4 {
+                let origin = rays[2 * i].xyz, direction = rays[2 * i + 1].xyz
+                let offset = origin - camera.position
+                let radius = enabled ? camera.apertureRadius * (i < 2 ? 0.5 : 0.9) : 0
+                let axial = simd_dot(direction, camera.forward)
+                let intersection = origin + direction * (focus / axial)
+                guard abs(simd_length(offset) - radius) < 0.0001,
+                    abs(simd_dot(offset, camera.forward)) < 0.0001,
+                    abs(simd_length(direction) - 1) < 0.0001,
+                    axial > 0, simd_distance(intersection, target) < 0.0001
+                else {
+                    throw RenderFailure(
+                        "Camera ray violates aperture or focal-plane invariant: lens=\(enabled), focus=\(focus), ray=\(i)"
+                    )
+                }
+            }
+        }
+    }
+
     static func readPixels(_ texture: MTLTexture) -> [UInt8] {
         var pixels = [UInt8](repeating: 0, count: texture.width * texture.height * 4)
         pixels.withUnsafeMutableBytes {

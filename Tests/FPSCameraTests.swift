@@ -26,6 +26,12 @@ enum FPSCameraTests {
         precondition(
             abs(simd_length(frame.right.xyz) / simd_length(frame.up.xyz) - 2) < 0.0001,
             "Projection respects viewport aspect")
+        precondition(frame.lens.x == 0, "Default lens must preserve pinhole rendering")
+        camera.depthOfField = true
+        camera.apertureRadius = 0.1
+        camera.focusDistance = 4
+        camera.fill(&frame, aspect: 2)
+        precondition(frame.lens.x == 0.1 && frame.lens.y == 4, "Lens settings must reach GPU constants")
         print("FPS camera tests passed")
     }
 }

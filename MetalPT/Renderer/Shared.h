@@ -68,6 +68,8 @@ typedef struct {
     PTUInt4 size;     // width, height, sample index, bounce
     PTUInt4 settings; // max depth, reset, reserved, seed
     PTFloat4 display; // exposure, spatial denoise strength, denoise enabled, validation mode
+    PTFloat4 lens;    // aperture radius and axial focus distance in scene units, reserved.zw
+    PTFloat4 whiteBalanceR, whiteBalanceG, whiteBalanceB; // linear sRGB matrix rows; R.w = display mode
 } PTFrame;
 
 typedef struct {
@@ -135,7 +137,7 @@ _Static_assert(sizeof(PTSampler) == 8, "sampler ABI");
 _Static_assert(sizeof(PTVertex) == 96, "vertex ABI");
 _Static_assert(sizeof(PTMaterial) == 432, "material ABI");
 _Static_assert(sizeof(PTPath) == 80, "path ABI");
-_Static_assert(sizeof(PTFrame) == 112, "frame ABI");
+_Static_assert(sizeof(PTFrame) == 176, "frame ABI");
 _Static_assert(sizeof(PTScene) == 80, "scene ABI");
 _Static_assert(sizeof(PTWork) == 104, "work ABI");
 _Static_assert(sizeof(PTMesh) == 16, "mesh ABI");

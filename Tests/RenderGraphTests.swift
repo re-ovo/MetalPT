@@ -71,7 +71,7 @@ import Metal
         require(
             ac.barriers[1]!.from == .accelerationStructure && ac.barriers[1]!.to == .dispatch,
             "AS stage transition")
-        require(MemoryLayout<PTPath>.stride == 80 && MemoryLayout<PTFrame>.stride == 112, "shared ABI")
+        require(MemoryLayout<PTPath>.stride == 80 && MemoryLayout<PTFrame>.stride == 176, "shared ABI")
         require(
             MemoryLayout<PTWork>.offset(of: \.normalDepth) == 64
                 && MemoryLayout<PTWork>.offset(of: \.filterOutput) == 88

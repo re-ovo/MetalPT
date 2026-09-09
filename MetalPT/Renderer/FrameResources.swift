@@ -20,8 +20,13 @@ struct FrameParameters {
         model.camera.fill(&constants, aspect: Float(width) / Float(height))
         constants.size = [UInt32(width), UInt32(height), sampleIndex, 0]
         constants.settings = [UInt32(model.maxDepth), reset ? 1 : 0, 0, 0x1234_5678]
+        let balance = model.whiteBalanceMatrix.transpose
+        constants.whiteBalanceR = SIMD4(balance.columns.0, Float(model.displayTransform.rawValue))
+        constants.whiteBalanceG = SIMD4(balance.columns.1, 0)
+        constants.whiteBalanceB = SIMD4(balance.columns.2, 0)
         constants.display = [
-            model.exposure, model.denoiseStrength, model.denoiseEnabled ? 1 : 0, validationMode,
+            model.exposure, model.denoiseStrength, model.denoiseEnabled ? 1 : 0,
+            validationMode,
         ]
     }
 }
