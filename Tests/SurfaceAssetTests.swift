@@ -87,6 +87,20 @@ enum SurfaceAssetTests {
         precondition(CGImageDestinationFinalize(destination), "PNG fixture encoding")
         let decoded = try SceneImage(encoded: encoded as Data)
         precondition(decoded.pixels == opaquePixels, "PNG decoding must preserve row order and channels")
+        // Raw PNG fixture: ImageIO's encoder discards RGB at alpha zero before our decoder runs.
+        // Alpha can be coverage OR glossiness; neither may change the stored RGB channels.
+        let straightPNG = Data(
+            base64Encoded:
+                "iVBORw0KGgoAAAANSUhEUgAAAAQAAAABCAYAAAD5PA/NAAAAFElEQVR4nGNocDjAAMSMQNwAxP8BOJkHga8FxlkAAAAASUVORK5CYII="
+        )!
+        let straight = try SceneImage(encoded: straightPNG)
+        precondition(
+            straight.pixels == [128, 64, 192, 0, 128, 64, 192, 1, 128, 64, 192, 128, 128, 64, 192, 255],
+            "PNG decoding must preserve RGB at zero, low, intermediate and opaque alpha/glossiness")
+        let straightMip = straight.mipLevels(sRGB: true).last!
+        precondition(
+            zip(straightMip.pixels.prefix(3), [128, 64, 192]).allSatisfy { abs(Int($0) - $1) <= 1 },
+            "Color mip RGB must not darken with alpha/glossiness")
         rejects("Invalid image accepted") { _ = try SceneImage(width: 1, height: 2, pixels: [0]) }
         rejects("Unsupported UV set accepted") {
             try TextureBinding(texture: SceneTexture.white.id, texCoord: 2).validate(samplers: [

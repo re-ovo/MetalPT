@@ -13,6 +13,7 @@ struct MetalViewport: NSViewRepresentable {
             model.importer.renderer = renderer
             view.device = renderer.context.device
             view.colorPixelFormat = .bgra8Unorm
+            view.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
             view.framebufferOnly = false
             view.preferredFramesPerSecond = 60
             view.delegate = renderer

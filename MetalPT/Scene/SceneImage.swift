@@ -1,6 +1,7 @@
 import Foundation
 import ImageIO
 import CoreGraphics
+import Accelerate
 
 nonisolated struct SceneImage {
     var id = ImageID()
@@ -25,33 +26,27 @@ nonisolated struct SceneImage {
         else {
             throw RenderFailure("图片解码失败或尺寸超限")
         }
-        let image = decoded.copy(colorSpace: CGColorSpaceCreateDeviceRGB()) ?? decoded
+        // glTF assigns color spaces by texture semantics, ignoring embedded RGB profiles.
+        let space = CGColorSpaceCreateDeviceRGB()
+        let image = decoded.copy(colorSpace: space) ?? decoded
+        // Convert directly to straight RGBA. A premultiplied 8-bit CGContext destroys RGB at
+        // alpha zero (also zero glossiness in SG maps) and quantizes RGB at low alpha.
+        var format = vImage_CGImageFormat(
+            bitsPerComponent: 8, bitsPerPixel: 32, colorSpace: Unmanaged.passUnretained(space),
+            bitmapInfo: CGBitmapInfo(
+                rawValue: CGBitmapInfo.byteOrder32Big.rawValue
+                    | CGImageAlphaInfo.last.rawValue),
+            version: 0, decode: nil, renderingIntent: .defaultIntent)
+        var buffer = vImage_Buffer()
+        let error = vImageBuffer_InitWithCGImage(
+            &buffer, &format, nil, image, vImage_Flags(kvImageNoFlags))
+        guard error == kvImageNoError else { throw RenderFailure("图片像素转换失败：\(error)") }
+        defer { free(buffer.data) }
         var rgba = [UInt8](repeating: 0, count: image.width * image.height * 4)
-        let drawn = rgba.withUnsafeMutableBytes { bytes -> Bool in
-            guard
-                let context = CGContext(
-                    data: bytes.baseAddress, width: image.width, height: image.height,
-                    bitsPerComponent: 8, bytesPerRow: image.width * 4, space: CGColorSpaceCreateDeviceRGB(),
-                    bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue
-                        | CGImageAlphaInfo.premultipliedLast.rawValue)
-            else { return false }
-            context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
-            return true
-        }
-        guard drawn else { throw RenderFailure("图片像素转换失败") }
-        // Opaque texels need no unpremultiplication; avoid three integer divisions per RGB pixel.
-        if image.alphaInfo != .none && image.alphaInfo != .noneSkipFirst && image.alphaInfo != .noneSkipLast {
-            rgba.withUnsafeMutableBufferPointer { bytes in
-                var p = 0
-                while p < bytes.count {
-                    let alpha = Int(bytes[p + 3])
-                    if alpha > 0 && alpha < 255 {
-                        for c in 0..<3 {
-                            bytes[p + c] = UInt8(min(255, (Int(bytes[p + c]) * 255 + alpha / 2) / alpha))
-                        }
-                    }
-                    p += 4
-                }
+        rgba.withUnsafeMutableBytes { bytes in
+            for row in 0..<image.height {
+                bytes.baseAddress!.advanced(by: row * image.width * 4).copyMemory(
+                    from: buffer.data.advanced(by: row * buffer.rowBytes), byteCount: image.width * 4)
             }
         }
         try self.init(width: image.width, height: image.height, pixels: rgba)
