@@ -1,69 +1,152 @@
 # MetalPT
 
-原生 macOS **路径追踪器**，使用 SwiftUI、Metal 4 和 MSL。
+MetalPT 是面向 Apple Silicon 的 GPU 路径追踪器，使用 Swift、Metal 4 和 Metal Shading Language 实现。项目包含波前渲染管线、基于物理的材质系统、glTF 2.0 资产导入，以及用于场景浏览和灯光编辑的原生 macOS 应用。
 
-需要 macOS 26.5+、M3 或更新 Apple Silicon，以及带 Metal Toolchain 的 Xcode 26。打开 `MetalPT.xcodeproj`，选择 **MetalPT / My Mac** 运行。
+渲染器通过硬件光线求交计算直接与间接光照，在线性 RGB 空间中渐进累积。GPU Pass 的依赖、同步和资源生命周期由 Render Graph 管理，应用界面使用 SwiftUI 和 MetalKit。
 
-## 功能与交互
+![MetalPT：Cornell 场景中的金属与玻璃材质](docs/images/metalpt-cornell.jpg)
 
-- 内置 Cornell 材质场景与玻璃棱镜场景；支持打开或拖入 glTF / GLB，异步解析、自动取景和查看灯光。
-- 顶部工具栏提供场景导入与切换、暂停、重新累积和相机复位；左侧场景树保留 glTF 节点名称和父子层级，支持展开、搜索、选择，右侧检查器显示节点统计和渲染设置。两侧面板可调整宽度或收起。
-- FPS 相机：按住右键环顾，同时 WASD 水平移动、Q/E 升降、Shift 四倍加速；滚轮调整速度，检查器调整视野。松开右键、按 Esc 或窗口失焦会停止移动。
-- 工具栏「＋」可添加点光源、聚光灯和平行光；检查器支持启用、颜色、强度、位置、方向、范围、锥角和删除。支持 glTF `KHR_lights_punctual` 导入。
-- 默认启用空间降噪：首交点法线、深度和反照率引导三轮边缘保持滤波，可在检查器开关和调节强度；镜面、透明及发光表面保留原图，不修改原始累积。
-- 默认 50% drawable 分辨率、每帧 1 spp、最多 8 次表面交互。相机、场景、尺寸和深度变化重置累积；曝光只改变显示。
-- 漫反射、RGB 黄金、metallic-roughness / specular-glossiness PBR、固定折射率 1.5 的理想玻璃、附加发光及 glTF 薄表面透射。
-- UV0/1、顶点颜色、平滑法线、法线贴图、纹理变换、采样器、mip、单双面及 OPAQUE/MASK/BLEND 覆盖。
+*Cornell 内置场景，Apple M4，50% 渲染比例，8 次表面交互，空间降噪开启。*
 
-模型支持和限制见 [glTF 导入](docs/gltf-import.md)，资产语义见 [表面资产](docs/surface-assets.md)。
+[构建与运行](#构建与运行) · [功能](#功能) · [文档](#文档) · [测试与验证](#测试与验证) · [许可证](#许可证)
 
-## 渲染实现
+## 构建与运行
 
-```text
-新几何：批量 Build BLAS → Build TLAS
-每个样本：Initialize
-          ┌ PrepareBounce → Intersect → Shade
-          │                      ↓
-          └ FinishBounce ← TraceShadows ← PrepareShadow
-          Accumulate linear RGB → Tone map → sRGB display
-```
+### 环境要求
 
-GPU 原子计数器压紧路径和阴影队列，GPU 写入间接 dispatch 参数；CPU 编码固定最大反弹次数，不回读路径数量控制调度。硬件 triangle/instancing intersection query 处理求交、单双面和 alpha coverage。
+| 组件 | 要求 |
+| --- | --- |
+| 操作系统 | macOS 26.5 或更新版本 |
+| 硬件 | Apple M3 或更新的 Apple Silicon |
+| 开发工具 | Xcode 26，已安装 Metal Toolchain |
 
-材质颜色、发光和路径吞吐量均为线性 RGB。基色/发光图片通过 sRGB 纹理视图解码，数据纹理保持线性。BSDF 计算三个颜色通道，缓冲使用对齐的 float4，第四分量保留为零。FP32 RGB 运行平均经曝光、ACES 风格曲线和一次 sRGB 编码，写入非 sRGB BGRA8 drawable。
-
-漫反射使用 RGB Lambert；两种 PBR 工作流经公共表面参数使用 GGX/Smith/Schlick；黄金使用近似 RGB F0=(1, 0.71, 0.29)。玻璃使用固定 IOR=1.5 的 Fresnel、全反射、辐亮度透射 η² 和俄罗斯轮盘 η 补偿。矩形灯使用 NEE、power heuristic MIS 和包含灯光选择概率的 PDF；点光源与聚光灯使用平方反比衰减，平行光无距离衰减，三者使用 delta 光源采样与阴影射线；其他发光几何靠路径命中贡献。
-
-没有波长采样、RGB-to-spectrum、CIE/XYZ 转换、Sellmeier 或色散。没有时间降噪、专门焦散算法、嵌套介质和体积吸收；有限反弹深度会截断较长路径。glTF transmission 是薄表面透射，厚玻璃 volume/IOR 扩展尚未实现。
-
-## 代码组织与资源管理
-
-- `MetalPT/ContentView.swift` 和 `Views/`：控制面板、MetalKit 桥接、鼠标和模型加载。
-- `Scene/`：稳定 ID 场景图、层级变换、网格局部材质槽、图片/纹理/采样器和 glTF 解析。
-- `Renderer/Renderer.swift`：历史失效、帧调度、场景快照和提交；`PathTracingPasses.swift` 安排各个类型化 Pass。
-- `Renderer/RenderGraph.swift`：依赖检查、拓扑排序、无用 Pass 剔除、RAW/WAR/WAW 屏障、生命周期和编译缓存。
-- `FrameSlot.swift` / `FrameResources.swift`：三个帧槽、延迟分配、描述匹配资源池及 GPU 完成后的复用。
-- `BindlessScene.swift` / `ResourceRegistry.swift`：场景根表、GPU 地址、纹理 ID、AS、间接资源登记和驻留。
-- `Shaders/SurfaceParameters.h`：将材质工作流转换为不含纹理绑定的公共 BSDF 参数。
-- `Shaders/`：采样、BSDF、求交、着色、阴影、队列、累积、显示和生产 GPU 验证。
-- `Renderer/Shared.h`：CPU/GPU ABI，PTPath 和 PTScene 均为 80 字节。
-
-相邻快照复用未变化的网格/BLAS；TLAS 重新 build。单队列、整资源依赖；尚无多队列、子资源跟踪、内存别名和 TLAS refit。详细契约见 [架构说明](docs/architecture.md)。
-
-## 验证
+在 Xcode 中打开 `MetalPT.xcodeproj`，选择 **MetalPT / My Mac** 并运行。也可以从命令行构建：
 
 ```sh
 xcodebuild -project MetalPT.xcodeproj -scheme MetalPT \
-  -configuration Debug -derivedDataPath /tmp/MetalPT-build CODE_SIGNING_ALLOWED=NO build
+  -configuration Debug \
+  -derivedDataPath /tmp/MetalPT-build \
+  CODE_SIGNING_ALLOWED=NO build
+```
+
+构建产物位于 `/tmp/MetalPT-build/Build/Products/Debug/MetalPT.app`。
+
+### 使用
+
+应用提供 Cornell 材质场景和玻璃棱镜场景。通过工具栏打开模型，或将 `.gltf` / `.glb` 文件拖入视口。包含外部 buffer 或图片的 glTF 应通过「打开模型文件夹」授予目录读取权限。模型加载完成后自动取景；场景树保留节点名称与父子层级。
+
+按住鼠标右键环顾，使用 W/A/S/D 水平移动、Q/E 升降、Shift 加速，滚轮调整移动速度。工具栏与检查器提供灯光编辑、相机设置、暂停和重新累积等操作。
+
+默认以视口宽高的 50% 渲染，每帧累积 1 spp，最多执行 8 次表面交互，并启用空间降噪。相机、场景、渲染尺寸或路径深度变化会重置累积；曝光、白平衡、色调映射和降噪设置变化保留累积结果。
+
+## 功能
+
+### 光照与材质
+
+- 波前路径追踪，GPU 路径与阴影队列压紧，间接 dispatch。
+- 硬件三角形求交、两级加速结构与共享网格实例。
+- 直接光采样（NEE）、多重重要性采样（MIS）与俄罗斯轮盘路径终止。
+- Lambert 漫反射、Metallic-Roughness 和 Specular-Glossiness PBR；GGX 微表面模型与可见法线（VNDF）采样。
+- 理想玻璃的 Fresnel 反射、折射与全反射，固定折射率 1.5；近似 RGB 黄金材质。
+- 薄表面透射、附加发光、矩形面积灯，以及点光源、聚光灯和平行光。
+
+### 资产与场景
+
+- glTF 2.0 / GLB 静态场景导入，包括三角形、三角带、三角扇、共享网格和多材质实例。
+- 稳定 ID 场景图、层级变换、可见性与网格局部材质槽。
+- UV0/1、顶点颜色、平滑法线、切线空间法线贴图、纹理变换、采样器与 mip 链。
+- PNG/JPEG 图片、颜色纹理 sRGB 解码与线性数据纹理。
+- 单双面表面及 OPAQUE、MASK、BLEND 覆盖模式。
+- 异步模型加载、自动取景，以及解析灯光的添加、编辑和删除。
+
+支持的 glTF 扩展和资产兼容性说明见 [glTF 导入](docs/gltf-import.md)。
+
+### 相机与显示
+
+- FPS 相机与薄透镜景深。
+- FP32 线性 RGB 渐进累积。
+- 法线、深度和反照率引导的三轮 à-trous 空间降噪；滤波结果与原始累积分离。
+- 曝光、Bradford 白平衡、ACES 风格曲线、亮度 Reinhard 和线性裁剪。
+- SDR sRGB 输出。
+
+## 架构
+
+每个样本依次生成相机路径、执行多次表面交互并更新累积结果。GPU 生成队列计数和间接 dispatch 参数；CPU 按最大路径深度编码 Pass，无需回读路径数量。
+
+```text
+场景更新 → Build BLAS（新增或变更的网格）→ Build TLAS
+
+Camera paths
+    │
+    ├─ Intersect → Shade → Trace shadows ─┐
+    │                                    │
+    └──────────── 下一次反弹 ──────────────┘
+    │
+Accumulate → Spatial denoise → Display transform → Present
+```
+
+Render Graph 从类型化 Pass 输入生成资源依赖与绑定，执行拓扑排序、无用 Pass 剔除、RAW/WAR/WAW 屏障推导和生命周期分析，并缓存编译计划。瞬态资源在图编译后分配，由三个帧槽各自的资源池复用。
+
+CPU 场景图编译为扁平 GPU 快照，通过 GPU 地址与纹理 ID 访问场景资源。相邻快照复用未变化的网格和 BLAS；在途帧保留其引用的快照与资源，直至 GPU 完成。单独编辑解析灯光时复用几何、纹理和加速结构。
+
+| 路径 | 职责 |
+| --- | --- |
+| `MetalPT/ContentView.swift`、`MetalPT/Views/` | 应用界面、MetalKit 桥接、输入与模型加载 |
+| `MetalPT/Scene/` | 场景图、几何、材质、纹理资产与 glTF 导入 |
+| `MetalPT/Renderer/` | 帧调度、Render Graph、资源管理与 GPU 场景上传 |
+| `MetalPT/Renderer/Passes/` | 类型化渲染 Pass |
+| `MetalPT/Renderer/Shared.h` | CPU/GPU 共享数据布局 |
+| `MetalPT/Shaders/` | 路径追踪、BSDF、降噪、显示与验证 Shader |
+| `Tests/`、`scripts/` | CPU 测试、GPU 验证与开发工具 |
+| `docs/` | 技术设计与验证记录 |
+
+详细的资源契约、BSDF 约定和同步机制见 [架构说明](docs/architecture.md)。
+
+## 实现边界
+
+当前积分器使用 RGB，不支持光谱采样或色散。尚未实现体积散射与吸收、嵌套介质、专门的焦散算法或时间降噪。glTF transmission 使用薄表面模型；厚玻璃的 volume / IOR 扩展尚未支持。
+
+模型导入使用静态姿态，不支持动画播放、蒙皮或 morph targets。灯光编辑保存在内存中，尚无场景保存与导出功能。
+
+渲染调度采用单队列和整资源级依赖，尚未实现子资源跟踪、内存别名、多队列调度或 TLAS refit。显示输出为 SDR，不包含完整 ACES、ICC/OCIO 或 HDR 管线。
+
+## 文档
+
+- [渲染器架构](docs/architecture.md)：场景快照、BSDF、Render Graph、资源驻留与显示处理。
+- [glTF 导入](docs/gltf-import.md)：支持的扩展、加载流程、兼容性与性能诊断。
+- [表面资产](docs/surface-assets.md)：几何、材质、图片、纹理与采样器语义。
+- [RGB 验证](docs/validation/rgb.md)、[BSDF 验证](docs/validation/bsdf.md)、[VNDF 验证](docs/validation/vndf.md)：数值检查与渲染结果。
+- [空间降噪验证](docs/validation/spatial-denoise.md)、[景深降噪验证](docs/validation/dof-denoise.md)：滤波行为与实现限制。
+
+## 测试与验证
+
+运行 CPU 测试：
+
+```sh
 scripts/test-graph.sh
 scripts/test-gltf.sh
+```
+
+测试覆盖 Render Graph、共享 ABI、场景层级、材质绑定、表面资产与 glTF 解析。GPU 验证执行生产 Shader，检查采样与材质、颜色输出、资源绑定和累积失效等行为。
+
+```sh
+# Metal API / Shader Validation
 scripts/validate-gpu.sh validation
+
+# 薄表面透射专项验证
 METALPT_TRANSMISSION_VALIDATE=1 scripts/validate-gpu.sh validation
+
+# Metal GPU Capture，与 Shader Validation 分开运行
 scripts/validate-gpu.sh capture
+
+# Release 渲染与性能记录
 METALPT_SPP=512 scripts/validate-gpu.sh release
 ```
 
-环境变量统一使用 `METALPT_` 前缀。`METALPT_OUTPUT` 指定报告目录，`METALPT_PROFILE=1` 开启逐 Pass GPU 时间戳。Capture 与 Shader Validation 分开运行。
+环境变量统一使用 `METALPT_` 前缀。`METALPT_OUTPUT` 指定报告目录；`METALPT_PROFILE=1` 启用逐 Pass GPU 时间戳。时间戳测量会引入额外同步开销，常规性能比较应关闭该选项。
 
-CPU 覆盖图/ABI、场景层级、primitive、图片及 glTF。GPU 覆盖 RGB 通道保持、显示编码、Fresnel/TIR、GGX、黑场、PBR 能量/PDF、纹理/覆盖、透射、资源绑定、BLAS 复用和累积失效。
-材质重构记录见 [BSDF 验证](docs/validation/bsdf.md)，RGB 基线见 [RGB 验证](docs/validation/rgb.md)。
+代码格式化使用 `scripts/format.sh`，依赖 Xcode 的 `swift-format` 和 `clang-format`。
+
+## 许可证
+
+MetalPT 使用 [MIT 许可证](LICENSE)。
