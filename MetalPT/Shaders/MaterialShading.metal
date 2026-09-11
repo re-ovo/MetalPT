@@ -18,7 +18,9 @@ kernel void shadePaths(constant PTScene &s [[buffer(0)]],
     SurfaceParameters bsdf = prepareBSDF(m, material);
     float3 ng = hit.normal.xyz, geometric = hit.info.z ? ng : -ng, wo = -p.direction.xyz;
     float3 n = hit.info.z ? hit.shadingNormal.xyz : -hit.shadingNormal.xyz;
-    if (dot(n, wo) <= 1e-5f || bsdf.kind == BSDFKind::dielectric)
+    // Smooth normals also define ideal glass reflection/refraction. Keep the geometric normal
+    // for interface sidedness, ray offsets, and the outgoing hemisphere check below.
+    if (dot(n, wo) <= 1e-5f)
         n = geometric;
     if ((hit.info.z || m.flags.z) && f.display.w != 1 && any(material.emission > 0)) {
         float weight = 1;
