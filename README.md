@@ -4,9 +4,9 @@ MetalPT 是面向 Apple Silicon 的 GPU 路径追踪器，使用 Swift、Metal 4
 
 渲染器通过硬件光线求交计算直接与间接光照，在线性 RGB 空间中渐进累积。GPU Pass 的依赖、同步和资源生命周期由 Render Graph 管理，应用界面使用 SwiftUI 和 MetalKit。
 
-![MetalPT：Cornell 场景中的金属与玻璃材质](docs/images/metalpt-cornell.jpg)
+![MetalPT：Bistro 场景与灯光编辑界面](docs/images/metalpt-bistro.jpg)
 
-*Cornell 内置场景，Apple M4，50% 渲染比例，8 次表面交互，空间降噪开启。*
+*Amazon Lumberyard Bistro 场景，Apple M4，50% 渲染比例，8 次表面交互，662 spp，空间降噪关闭。*
 
 [构建与运行](#构建与运行) · [功能](#功能) · [文档](#文档) · [测试与验证](#测试与验证) · [许可证](#许可证)
 
