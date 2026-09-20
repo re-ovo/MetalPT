@@ -16,9 +16,9 @@ MetalPT 是面向 Apple Silicon 的 GPU 路径追踪器，使用 Swift、Metal 4
 
 | 组件 | 要求 |
 | --- | --- |
-| 操作系统 | macOS 26.5 或更新版本 |
+| 操作系统 | macOS 27.0 或更新版本 |
 | 硬件 | Apple M3 或更新的 Apple Silicon |
-| 开发工具 | Xcode 26，已安装 Metal Toolchain |
+| 开发工具 | Xcode 27，已安装 Metal Toolchain |
 
 在 Xcode 中打开 `MetalPT.xcodeproj`，选择 **MetalPT / My Mac** 并运行。也可以从命令行构建：
 

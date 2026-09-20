@@ -10,7 +10,7 @@
 
 ## Build, Test, and Development Commands
 
-Use macOS 26.5+, an M3-or-newer Mac, and Xcode 26 with Metal Toolchain. Open `MetalPT.xcodeproj` and run **MetalPT / My Mac** for interactive development.
+Use macOS 27.0+, an M3-or-newer Mac, and Xcode 27 with Metal Toolchain. Open `MetalPT.xcodeproj` and run **MetalPT / My Mac** for interactive development.
 
 ```sh
 xcodebuild -project MetalPT.xcodeproj -scheme MetalPT \
