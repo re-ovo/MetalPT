@@ -69,39 +69,6 @@ xcodebuild -project MetalPT.xcodeproj -scheme MetalPT \
 - 曝光、Bradford 白平衡、ACES 风格曲线、亮度 Reinhard 和线性裁剪。
 - SDR sRGB 输出。
 
-## 架构
-
-每个样本依次生成相机路径、执行多次表面交互并更新累积结果。GPU 生成队列计数和间接 dispatch 参数；CPU 按最大路径深度编码 Pass，无需回读路径数量。
-
-```text
-场景更新 → Build BLAS（新增或变更的网格）→ Build TLAS
-
-Camera paths
-    │
-    ├─ Intersect → Shade → Trace shadows ─┐
-    │                                    │
-    └──────────── 下一次反弹 ──────────────┘
-    │
-Accumulate → Spatial denoise → Display transform → Present
-```
-
-Render Graph 从类型化 Pass 输入生成资源依赖与绑定，执行拓扑排序、无用 Pass 剔除、RAW/WAR/WAW 屏障推导和生命周期分析，并缓存编译计划。瞬态资源在图编译后分配，由三个帧槽各自的资源池复用。
-
-CPU 场景图编译为扁平 GPU 快照，通过 GPU 地址与纹理 ID 访问场景资源。相邻快照复用未变化的网格和 BLAS；在途帧保留其引用的快照与资源，直至 GPU 完成。单独编辑解析灯光时复用几何、纹理和加速结构。
-
-| 路径 | 职责 |
-| --- | --- |
-| `MetalPT/ContentView.swift`、`MetalPT/Views/` | 应用界面、MetalKit 桥接、输入与模型加载 |
-| `MetalPT/Scene/` | 场景图、几何、材质、纹理资产与 glTF 导入 |
-| `MetalPT/Renderer/` | 帧调度、Render Graph、资源管理与 GPU 场景上传 |
-| `MetalPT/Renderer/Passes/` | 类型化渲染 Pass |
-| `MetalPT/Renderer/Shared.h` | CPU/GPU 共享数据布局 |
-| `MetalPT/Shaders/` | 路径追踪、BSDF、降噪、显示与验证 Shader |
-| `Tests/`、`scripts/` | CPU 测试、GPU 验证与开发工具 |
-| `docs/` | 技术设计与验证记录 |
-
-详细的资源契约、BSDF 约定和同步机制见 [架构说明](docs/architecture.md)。
-
 ## 实现边界
 
 当前积分器使用 RGB，不支持光谱采样或色散。尚未实现体积散射与吸收、嵌套介质、专门的焦散算法或时间降噪。glTF transmission 使用薄表面模型；厚玻璃的 volume / IOR 扩展尚未支持。
